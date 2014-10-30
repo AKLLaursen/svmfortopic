@@ -26,42 +26,119 @@ NULL
 #'@importFrom rvest html_nodes
 #'@importFrom rvest html_text
 #'@importFrom dplyr rbind_all
+#'@importFrom dplyr group_by
+#'@importFrom dplyr ungroup
+#'@importFrom dplyr summarise
 #'@importFrom magrittr add
 #'@param from_date A string with the start date of the desired series
 #'@param to_date A string with the end date of the desired series
 #'@param country A string with the desired country iso id. Takes the values DE, 
-#'FR and CH.
+#'FR and CH. Default is DE.
+#'@param market A string indicating market type. Takes the values Spot and
+#'Intraday. Deafult is Spot.
+#'@param contract A string indicating contract type for intraday. Take the
+#'values H and Q. Default is H.
 #'@return a dataframe containing the dates, hours, spot and volumes
 #'@export
-scrape_epex_spot <- function(from_date, to_date, country) {
+scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
+                        contract = "H")
+  {
   cat("Initialising scraping routine, getting dates ...\n")
   time_stamp <- Sys.time()
-  date_scrape <- seq(as.Date(from_date) -6, as.Date(to_date) -6, by = 1) %>%
-    as.character
+  
+  if (market == "Spot") {
+    date_scr <- seq(as.Date(from_date) -6, as.Date(to_date) -6, by = 1) %>%
+      as.character
+  } else if (market == "Intraday") {
+    date_scr <- seq(as.Date(from_date), as.Date(to_date), by = 1) %>%
+      as.character
+  } else {
+    stop("Market not recognised")
+  }
   
   data_out <- list()
-  for (ii in 1:length(date_scrape)) {
-    epex_sp <-
-      rvest::html(paste0("http://www.epexspot.com/en/market-data/auction/aucti",
-                         "on-table/",
-                         date_scrape[ii],
-                         "/",
-                         country))
-    
-    data_scrape <- epex_sp %>%
-      rvest::html_nodes("#tab_de td:nth-child(9)") %>%
-      rvest::html_text() %>%
-      gsub(",", "", .) %>% 
-      as.numeric %>%
-      na.omit
-    
-    data_out[[ii]] <- data.frame(
-      date = date_scrape[ii] %>% as.Date %>% magrittr::add(6),
-      hour = if(length(data_scrape) > 48) c(1:3,3:24) else if(length(data_scrape) < 48) c(1:2,4:24) else 1:24,
-      spot = data_scrape[c(TRUE, FALSE)],
-      volume = data_scrape[c(FALSE, TRUE)])
-    
-    cat(paste0(as.character(as.Date(date_scrape[ii]) + 6), " ...\n"))
+  for (ii in 1:length(date_scr)) {
+    if (market == "Spot") {
+      
+      epex_sp <-
+        rvest::html(paste0("http://www.epexspot.com/en/market-data/auction/auc",
+                           "tion-table/",
+                           date_scr[ii],
+                           "/",
+                           country))
+      
+      data_scr <- epex_sp %>%
+        rvest::html_nodes("#tab_de td:nth-child(9)") %>%
+        rvest::html_text() %>%
+        gsub(",", "", .) %>% 
+        as.numeric
+      
+      data_out[[ii]] <- data.frame(
+        date = date_scr[ii] %>% as.Date %>% magrittr::add(6),
+        hour = if (length(data_scr) > 48) c(1:3, 3:24) else 1:24,
+        spot = data_scr[c(TRUE, FALSE)],
+        volume = data_scr[c(FALSE, TRUE)],
+        created = time_stamp) %>%
+        dplyr::group_by(date, hour) %>%
+        dplyr::summarise(spot = mean(spot, na.rm = TRUE),
+                         volume = mean(volume, na.rm = TRUE)) %>%
+        dplyr::ungroup()
+      
+      cat(paste0(as.character(as.Date(date_scr[ii]) + 6), " ...\n"))
+      
+    } else if (market == "Intraday") {
+      
+      epex_sp <-
+        rvest::html(paste0("http://www.epexspot.com/en/market-data/intraday/in",
+                           "traday-table/",
+                           date_scr[ii],
+                           "/",
+                           country))
+      
+      data_scr <- epex_sp %>%
+        rvest::html_nodes("td:nth-child(6)") %>%
+        rvest::html_text() %>%
+        gsub(",", "", .) %>% 
+        as.numeric %>%
+        head(-1)
+      
+      if (contract == "H") {
+        
+        data_scr <- data_scr[seq(1, length(data_scr), 5)]
+        
+        data_out[[ii]] <- data.frame(
+          date = date_scr[ii] %>% as.Date,
+          hour = if (length(data_scr) > 24) c(1:3, 3:24) else 1:24,
+          vwap = data_scr,
+          created = time_stamp) %>%
+          dplyr::group_by(date, hour) %>%
+          dplyr::summarise(vwap = mean(vwap, na.rm = TRUE)) %>%
+          dplyr::ungroup()
+        
+        cat(paste0(date_scr[ii], " ...\n"))
+        
+      } else if (contract == "Q") {
+        
+        data_scr <- data_scr[-seq(1, length(data_scr), 5)]
+        
+        data_out[[ii]] <- data.frame(
+          date = date_scr[ii] %>% as.Date,
+          quarter = if (length(data_scr) > 96) c(1:12, 9:12, 13:96) else 1:96,
+          vwap = data_scr,
+          created = time_stamp) %>%
+          dplyr::group_by(date, quarter) %>%
+          dplyr::summarise(vwap = mean(vwap, na.rm = TRUE)) %>%
+          dplyr::ungroup()
+        
+        cat(paste0(date_scr[ii], " ...\n"))
+        
+      } else {
+        stop("Contract not recognised")
+      }
+      
+    } else {
+      stop("Market not recognised\n")
+    }
   }
   data_out <- dplyr::rbind_all(data_out)
   cat("Data downloaded, exiting function\n")
