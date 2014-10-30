@@ -1,45 +1,45 @@
-#'@name svmfortopic
-#'@title Package providing all data and programs used in the topic XXX by
-#'Andreas Keller Leth Laursen
-#'@docType package
-#'@description Provides all data used in the project topic by Andreas Keller
-#'Leth Laursen from public sources. Further all programs are included as well as
-#'tables and graphs.
-#'@details
-#'\tabular{ll}{
-#'  Package: \tab svmfortopic \cr
-#'  Type:    \tab Package     \cr
-#'  Version: \tab 1.0         \cr
-#'  Date:    \tab 2014-10-24  \cr
-#'  License: \tab GPL         \cr
-#'  }
-#'@author Andreas Keller Leth Laursen
-#'Maintainer Andreas Keller Leth Laursen <andreas.keller[at]gmail.com>
+#' @name svmfortopic
+#' @title Package providing all data and programs used in the topic XXX by
+#' Andreas Keller Leth Laursen
+#' @docType package
+#' @description Provides all data used in the project topic by Andreas Keller
+#' Leth Laursen from public sources. Further all programs are included as well
+#' as tables and graphs.
+#' @details
+#' \tabular{ll}{
+#'   Package: \tab svmfortopic \cr
+#'   Type:    \tab Package     \cr
+#'   Version: \tab 1.0         \cr
+#'   Date:    \tab 2014-10-24  \cr
+#'   License: \tab GPL         \cr
+#'   }
+#' @author Andreas Keller Leth Laursen
+#' Maintainer Andreas Keller Leth Laursen <andreas.keller[at]gmail.com>
 NULL
 
-#'@importFrom magrittr %>%
+#' @importFrom magrittr %>%
 `%>%` <- magrittr::`%>%`
 
-#'Function scraping various spotprices and volumes from the Epexspot website
+#' Function scraping various spotprices and volumes from the Epexspot website
 #'
-#'@importFrom rvest html
-#'@importFrom rvest html_nodes
-#'@importFrom rvest html_text
-#'@importFrom dplyr rbind_all
-#'@importFrom dplyr group_by
-#'@importFrom dplyr ungroup
-#'@importFrom dplyr summarise
-#'@importFrom magrittr add
-#'@param from_date A string with the start date of the desired series
-#'@param to_date A string with the end date of the desired series
-#'@param country A string with the desired country iso id. Takes the values DE, 
-#'FR and CH. Default is DE.
-#'@param market A string indicating market type. Takes the values Spot and
-#'Intraday. Deafult is Spot.
-#'@param contract A string indicating contract type for intraday. Take the
-#'values H and Q. Default is H.
-#'@return a dataframe containing the dates, hours, spot and volumes
-#'@export
+#' @importFrom rvest html
+#' @importFrom rvest html_nodes
+#' @importFrom rvest html_text
+#' @importFrom dplyr rbind_all
+#' @importFrom dplyr group_by
+#' @importFrom dplyr ungroup
+#' @importFrom dplyr summarise
+#' @importFrom magrittr add
+#' @param from_date A string with the start date of the desired series
+#' @param to_date A string with the end date of the desired series
+#' @param country A string with the desired country iso id. Takes the values DE, 
+#' FR and CH. Default is DE.
+#' @param market A string indicating market type. Takes the values Spot and
+#' Intraday. Deafult is Spot.
+#' @param contract A string indicating contract type for intraday. Take the
+#' values H and Q. Default is H.
+#' @return a dataframe containing the dates, hours, spot and volumes
+#' @export
 scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
                         contract = "H")
   {
@@ -145,13 +145,13 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
   return(data_out)
 }
 
-#'Funtion fixing daylights savings issues by replacing missing hours with mean
-#'of neighbouring hours and collecting extra hour to single observation by
-#'taking the mean.
+#' Function fixing daylights savings issues by replacing missing hours with mean
+#' of neighbouring hours and collecting extra hour to single observation by
+#' taking the mean.
 #'
-#'@importFrom dplyr slice
-#'@param input_frame A dataframe containing data to be fixed.
-#'@return A dataframe, the original imported dataframe fixed.
+#' @importFrom dplyr slice
+#' @param input_frame A dataframe containing data to be fixed.
+#' @return A dataframe, the original imported dataframe fixed.
 daylights_filter <- function(input_data) {
   cat("Correcting daylights savings issues")
   

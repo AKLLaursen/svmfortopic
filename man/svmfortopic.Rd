@@ -7,17 +7,17 @@
 Andreas Keller Leth Laursen}
 \description{
 Provides all data used in the project topic by Andreas Keller
-Leth Laursen from public sources. Further all programs are included as well as
-tables and graphs.
+Leth Laursen from public sources. Further all programs are included as well
+as tables and graphs.
 }
 \details{
 \tabular{ll}{
- Package: \tab svmfortopic \cr
- Type:    \tab Package     \cr
- Version: \tab 1.0         \cr
- Date:    \tab 2014-10-24  \cr
- License: \tab GPL         \cr
- }
+  Package: \tab svmfortopic \cr
+  Type:    \tab Package     \cr
+  Version: \tab 1.0         \cr
+  Date:    \tab 2014-10-24  \cr
+  License: \tab GPL         \cr
+  }
 }
 \author{
 Andreas Keller Leth Laursen
