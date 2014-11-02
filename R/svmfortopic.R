@@ -148,41 +148,33 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
   return(data_out)
 }
 
-#' Function fixing daylights savings issues by replacing missing hours with mean
-#' of neighbouring hours and collecting extra hour to single observation by
-#' taking the mean.
+#' Function replacing missing values (NA) using linear interpolation between
+#' closest finite observations. If starting points are missing, they are
+#' replaced by the closets observation possible.
 #'
-#' @importFrom dplyr slice
-#' @param input_frame A dataframe containing data to be fixed.
-#' @return A dataframe, the original imported dataframe fixed.
-daylights_filter <- function(input_data) {
-  cat("Correcting daylights savings issues")
+#' @param input_frame An atomic vector containing data to be fixed.
+#' @return An atomic vector filtered for missing values.
+na_filter <- function(input_data) {
+  cat("Replacing missing values\n")
+    
+  .idx <- which(is.na(input_data))
   
-  # Find position of daylights savings hours
-  find_hour <- function(x, season) {
-    if (season == "summer") {
-      out <- which(x$date %in% c("2010-03-28", "2011-03-27", "2012-03-25",
-                                 "2013-03-31", "2014-03-30", "2015-03-29",
-                                 "2016-03-27", "2017-03-26", "2018-03-25") &
-                     x$hour == 2)
+  ii = 1
+  for (ii in 1:length(.idx)) {
+    for (jj in 1:(length(input_data) - .idx[ii])) {
+      if (!is.na(input_data[.idx[ii] + jj]) == TRUE) {
+        .bp <- jj
+        break
+      }
+    }
+    if (is.null(idx[ii - 1]) == TRUE) {
+      input_data[idx[ii]] <- input_data[idx[ii] + .bp]
     } else {
-      out <- which(x$date %in% c("2010-10-31", "2011-10-30", "2012-10-28",
-                                 "2013-10-27", "2014-10-26", "2015-10-25",
-                                 "2016-10-30", "2017-10-29", "2018-10-28") &
-                     x$hour == 2) + 1
+      input_data[idx[ii]] <- input_data[idx[ii] - 1] +
+        (input_data[idx[ii] + .bp] - input_data[idx[ii] - 1]) / (.bp + 1)
+      cat(paste0("Replaced ", ii, "\n"))
     }
   }
-  
-  # Replace missing hour 3 with mean of hour 2 and 4.
-  insert_rows <- function(x) {
-    pos <- find_hour(x, "summer") + 0:(length(find_hour(x, "summer")) - 1)
-    for (ii in 1:length(pos)) {
-      x <- rbind(head(x, pos[ii]),
-                 `[<-` (dplyr::slice(x, pos[ii]), , 2:ncol(x),
-                        colMeans(x[pos[ii]:(pos[ii] +1), 2:ncol(x)],
-                                 na.rm = TRUE)),
-                 tail(x, -pos[ii]))
-    }
-    return(x)
-  }
+  cat("... Done\n")
+  return(input_data)
 } 
