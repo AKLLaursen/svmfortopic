@@ -73,6 +73,7 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
         gsub(",", "", .) %>% 
         as.numeric
       
+      # Summarise to handle October daylights savings, i.e. two hour 3.
       data_out[[ii]] <- data.frame(
         date = date_scr[ii] %>% as.Date %>% magrittr::add(6),
         hour = if (length(data_scr) > 48) c(1:3, 3:24) else 1:24,
@@ -106,6 +107,7 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
         
         data_scr <- data_scr[seq(1, length(data_scr), 5)]
         
+        # Summarise to handle October daylights savings, i.e. two hour 3.
         data_out[[ii]] <- data.frame(
           date = date_scr[ii] %>% as.Date,
           hour = if (length(data_scr) > 24) c(1:3, 3:24) else 1:24,
@@ -121,6 +123,7 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
         
         data_scr <- data_scr[-seq(1, length(data_scr), 5)]
         
+        # Summarise to handle October daylights savings, i.e. two hour 3.
         data_out[[ii]] <- data.frame(
           date = date_scr[ii] %>% as.Date,
           quarter = if (length(data_scr) > 96) c(1:12, 9:12, 13:96) else 1:96,
