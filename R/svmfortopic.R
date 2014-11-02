@@ -29,6 +29,7 @@ NULL
 #' @importFrom dplyr group_by
 #' @importFrom dplyr ungroup
 #' @importFrom dplyr summarise
+#' @importFrom dplyr mutate
 #' @importFrom magrittr add
 #' @param from_date A string with the start date of the desired series
 #' @param to_date A string with the end date of the desired series
@@ -83,8 +84,7 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
         dplyr::group_by(date, hour) %>%
         dplyr::summarise(spot = mean(spot, na.rm = TRUE),
                          volume = mean(volume, na.rm = TRUE)) %>%
-        dplyr::ungroup() %>%
-        dplyr::mutate(vwap = na_filter(vwap))
+        dplyr::ungroup()
       
       cat(paste0(as.character(as.Date(date_scr[ii]) + 6), " ...\n"))
       
@@ -116,8 +116,7 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
           created = time_stamp) %>%
           dplyr::group_by(date, hour) %>%
           dplyr::summarise(vwap = mean(vwap, na.rm = TRUE)) %>%
-          dplyr::ungroup() %>%
-          dplyr::mutate(vwap = na_filter(vwap))
+          dplyr::ungroup()
         
         cat(paste0(date_scr[ii], " ...\n"))
         
@@ -133,8 +132,7 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
           created = time_stamp) %>%
           dplyr::group_by(date, quarter) %>%
           dplyr::summarise(vwap = mean(vwap, na.rm = TRUE)) %>%
-          dplyr::ungroup() %>%
-          dplyr::mutate(vwap = na_filter(vwap))
+          dplyr::ungroup()
         
         cat(paste0(date_scr[ii], " ...\n"))
         
@@ -146,7 +144,19 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
       stop("Market not recognised\n")
     }
   }
-  data_out <- dplyr::rbind_all(data_out)
+  if (market == "Spot") {
+    data_out <- data_out %>%
+      dplyr::rbind_all() %>%
+      dplyr::mutate(spot = na_filter(spot),
+                    volume = na_filter(volume))
+  } else if (market == "Intraday") {
+    data_out <- data_out %>%
+      dplyr::rbind_all() %>%
+      dplyr::mutate(vwap = na_filter(vwap))
+  } else {
+    stop("Please specify correct market type.")
+  }
+  
   cat("Data downloaded, exiting function\n")
   return(data_out)
 }
@@ -170,11 +180,11 @@ na_filter <- function(input_data) {
         break
       }
     }
-    if (is.null(idx[ii - 1]) == TRUE) {
-      input_data[idx[ii]] <- input_data[idx[ii] + .bp]
+    if (is.null(.idx[ii - 1]) == TRUE) {
+      input_data[.idx[ii]] <- input_data[.idx[ii] + .bp]
     } else {
-      input_data[idx[ii]] <- input_data[idx[ii] - 1] +
-        (input_data[idx[ii] + .bp] - input_data[idx[ii] - 1]) / (.bp + 1)
+      input_data[.idx[ii]] <- input_data[.idx[ii] - 1] +
+        (input_data[.idx[ii] + .bp] - input_data[.idx[ii] - 1]) / (.bp + 1)
       cat(paste0("Replaced ", ii, "\n"))
     }
   }
