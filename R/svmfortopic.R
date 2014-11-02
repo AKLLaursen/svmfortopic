@@ -83,7 +83,8 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
         dplyr::group_by(date, hour) %>%
         dplyr::summarise(spot = mean(spot, na.rm = TRUE),
                          volume = mean(volume, na.rm = TRUE)) %>%
-        dplyr::ungroup()
+        dplyr::ungroup() %>%
+        dplyr::mutate(vwap = na_filter(vwap))
       
       cat(paste0(as.character(as.Date(date_scr[ii]) + 6), " ...\n"))
       
@@ -115,7 +116,8 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
           created = time_stamp) %>%
           dplyr::group_by(date, hour) %>%
           dplyr::summarise(vwap = mean(vwap, na.rm = TRUE)) %>%
-          dplyr::ungroup()
+          dplyr::ungroup() %>%
+          dplyr::mutate(vwap = na_filter(vwap))
         
         cat(paste0(date_scr[ii], " ...\n"))
         
@@ -131,7 +133,8 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
           created = time_stamp) %>%
           dplyr::group_by(date, quarter) %>%
           dplyr::summarise(vwap = mean(vwap, na.rm = TRUE)) %>%
-          dplyr::ungroup()
+          dplyr::ungroup() %>%
+          dplyr::mutate(vwap = na_filter(vwap))
         
         cat(paste0(date_scr[ii], " ...\n"))
         
@@ -152,7 +155,7 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
 #' closest finite observations. If starting points are missing, they are
 #' replaced by the closets observation possible.
 #'
-#' @param input_frame An atomic vector containing data to be fixed.
+#' @param input_data An atomic vector containing data to be fixed.
 #' @return An atomic vector filtered for missing values.
 na_filter <- function(input_data) {
   cat("Replacing missing values\n")
