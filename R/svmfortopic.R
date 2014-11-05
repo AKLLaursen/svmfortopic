@@ -178,3 +178,26 @@ na_filter <- function(input_data) {
   cat("... Done\n")
   return(input_data)
 }
+
+#' Function getting holiday dummies
+#' @param start_date 
+#' 
+get_holi_dum <- function(start_date, end_date, country) {
+  
+}
+
+#' Function calculating the exponentially weighted moving average of the input
+#' time series.
+#' 
+#' @param input_vector An atomic vector containing a time series.
+#' @param lambda A double, the lambda parameter for the ewma. Default value is
+#' 0.975
+#' @return An atomic vector with the transformed data.
+ewma <- function(input_vector, lambda = 0.975) {
+  output_vector <- input_vector
+  for (ii in 2:length(input_vector)) {
+    output_vector[ii] <- (1 - lambda) * input_vector[ii] +
+      lambda * output_vector[ii - 1]
+  }
+  return(output_vector)
+}
