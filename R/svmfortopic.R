@@ -7,7 +7,6 @@
 #' as tables and graphs.
 #' @details
 #' \tabular{ll}{
-#'   Package: \tab svmfortopic \cr
 #'   Type:    \tab Package     \cr
 #'   Version: \tab 1.0         \cr
 #'   Date:    \tab 2014-10-24  \cr
@@ -17,20 +16,8 @@
 #' Maintainer Andreas Keller Leth Laursen <andreas.keller[at]gmail.com>
 NULL
 
-#' @importFrom magrittr %>%
-`%>%` <- magrittr::`%>%`
-
 #' Function scraping various spotprices and volumes from the Epexspot website
 #'
-#' @importFrom rvest html
-#' @importFrom rvest html_nodes
-#' @importFrom rvest html_text
-#' @importFrom dplyr rbind_all
-#' @importFrom dplyr group_by
-#' @importFrom dplyr ungroup
-#' @importFrom dplyr summarise
-#' @importFrom dplyr mutate
-#' @importFrom magrittr add
 #' @param from_date A string with the start date of the desired series
 #' @param to_date A string with the end date of the desired series
 #' @param country A string with the desired country iso id. Takes the values DE, 
@@ -62,44 +49,44 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
     if (market == "Spot") {
       
       epex_sp <-
-        rvest::html(paste0("http://www.epexspot.com/en/market-data/auction/auc",
-                           "tion-table/",
-                           date_scr[ii],
-                           "/",
-                           country))
+        html(paste0("http://www.epexspot.com/en/market-data/auction/auction-ta,"
+                    "ble/",
+                    date_scr[ii],
+                    "/",
+                    country))
       
       data_scr <- epex_sp %>%
-        rvest::html_nodes("#tab_de td:nth-child(9)") %>%
-        rvest::html_text() %>%
+        html_nodes("#tab_de td:nth-child(9)") %>%
+        html_text %>%
         gsub(",", "", .) %>% 
         as.numeric
       
       # Summarise to handle October daylights savings, i.e. two hour 3.
       data_out[[ii]] <- data.frame(
-        date = date_scr[ii] %>% as.Date %>% magrittr::add(6),
+        date = date_scr[ii] %>% as.Date %>% add(6),
         hour = if (length(data_scr) > 48) c(1:3, 3:24) else 1:24,
         spot = data_scr[c(TRUE, FALSE)],
         volume = data_scr[c(FALSE, TRUE)],
         created = time_stamp) %>%
-        dplyr::group_by(date, hour) %>%
-        dplyr::summarise(spot = mean(spot, na.rm = TRUE),
+        group_by(date, hour) %>%
+        summarise(spot = mean(spot, na.rm = TRUE),
                          volume = mean(volume, na.rm = TRUE)) %>%
-        dplyr::ungroup()
+        ungroup
       
       cat(paste0(as.character(as.Date(date_scr[ii]) + 6), " ...\n"))
       
     } else if (market == "Intraday") {
       
       epex_sp <-
-        rvest::html(paste0("http://www.epexspot.com/en/market-data/intraday/in",
-                           "traday-table/",
-                           date_scr[ii],
-                           "/",
-                           country))
+        html(paste0("http://www.epexspot.com/en/market-data/intraday/intraday-,"
+                    "table/",
+                    date_scr[ii],
+                    "/",
+                    country))
       
       data_scr <- epex_sp %>%
-        rvest::html_nodes("td:nth-child(6)") %>%
-        rvest::html_text() %>%
+        html_nodes("td:nth-child(6)") %>%
+        html_text %>%
         gsub(",", "", .) %>% 
         as.numeric %>%
         head(-1)
@@ -114,9 +101,9 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
           hour = if (length(data_scr) > 24) c(1:3, 3:24) else 1:24,
           vwap = data_scr,
           created = time_stamp) %>%
-          dplyr::group_by(date, hour) %>%
-          dplyr::summarise(vwap = mean(vwap, na.rm = TRUE)) %>%
-          dplyr::ungroup()
+          group_by(date, hour) %>%
+          summarise(vwap = mean(vwap, na.rm = TRUE)) %>%
+          ungroup
         
         cat(paste0(date_scr[ii], " ...\n"))
         
@@ -130,9 +117,9 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
           quarter = if (length(data_scr) > 96) c(1:12, 9:12, 13:96) else 1:96,
           vwap = data_scr,
           created = time_stamp) %>%
-          dplyr::group_by(date, quarter) %>%
-          dplyr::summarise(vwap = mean(vwap, na.rm = TRUE)) %>%
-          dplyr::ungroup()
+          group_by(date, quarter) %>%
+          summarise(vwap = mean(vwap, na.rm = TRUE)) %>%
+          ungroup
         
         cat(paste0(date_scr[ii], " ...\n"))
         
@@ -146,13 +133,13 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
   }
   if (market == "Spot") {
     data_out <- data_out %>%
-      dplyr::rbind_all() %>%
-      dplyr::mutate(spot = na_filter(spot),
-                    volume = na_filter(volume))
+      rbind_all%>%
+      mutate(spot = na_filter(spot),
+             volume = na_filter(volume))
   } else if (market == "Intraday") {
     data_out <- data_out %>%
-      dplyr::rbind_all() %>%
-      dplyr::mutate(vwap = na_filter(vwap))
+      rbind_all %>%
+      mutate(vwap = na_filter(vwap))
   } else {
     stop("Please specify correct market type.")
   }
@@ -190,4 +177,4 @@ na_filter <- function(input_data) {
   }
   cat("... Done\n")
   return(input_data)
-} 
+}
