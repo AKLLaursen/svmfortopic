@@ -221,3 +221,10 @@ season_func <- function(beta, x) {
 error_func <- function(beta, x) {
   sum((x[, 1] - season_func(beta, x[, 2:ncol(x)])) ** 2)
 }
+
+#' Function for filtering seasonalities
+#' 
+#' @param input_frame A data frame containing the times series data.
+deseason <- function(input_frame) {
+  
+}
