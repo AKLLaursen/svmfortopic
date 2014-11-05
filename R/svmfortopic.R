@@ -205,10 +205,19 @@ ewma <- function(input_vector, lambda = 0.975) {
 #' Function calculating the long run trend seasonalities and short run
 #' seasonalities based on Janczura et. al. 2012.
 #' 
-#' @param beta an atomic vector containing the parameters.
-#' @param x a dataframe containing the variables, built as [trend, ones, ewma,
+#' @param beta An atomic vector containing the parameters.
+#' @param x A dataframe containing the variables, built as [trend, ones, ewma,
 #' dummies].
 season_func <- function(beta, x) {
   beta[1] * sin(2 * pi * (x[, 1] / 365 + x[, 2])) + beta[3] * x[, 2] +
-    beta[4:nrows(beta)] %*% t(x[, 3:nrows(x)])
+    beta[4:nrows(beta)] %*% t(x[, 3:ncol(x)])
+}
+
+#' Squared error function
+#' 
+#' @param beta An atomic vector containing the parameters.
+#' @param x A dataframe containing the variables, built as [time_series, trend,
+#' ones, ewma, dummies].
+error_func <- function(beta, x) {
+  sum((x[, 1] - season_func(beta, x[, 2:ncol(x)])) ** 2)
 }
