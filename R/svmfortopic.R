@@ -225,6 +225,35 @@ error_func <- function(beta, x) {
 #' Function for filtering seasonalities
 #' 
 #' @param input_frame A data frame containing the times series data.
+#' @return 
 deseason <- function(input_frame) {
+  data_frame <- input_frame %>%
+    transmute(spot,
+              trend = 1:n,
+              ones = 1,
+              week_day = date %>% as.Date %>% format("%a") %>% as.factor,
+              hour = hour %>% as.factor,½½½
+              e_spot = ewma(spot),
+              dummy = get_de_dummies(head(date, 1), tail(date, 1))) %>%
+    na.omit
   
+  data_frame <- cbind(data_frame,
+                      data.frame(model.matrix(~ week_day - 1,
+                                              data = data_frame)),
+                      data.frame(model.matrix(~ hour - 1,
+                                              data = data_frame))) %>%
+    select(-date, -hour, -week_day, -week_dayFri, -value_hour1)
+    
+  seas_fit <- optim(rep(2, 34),
+                    error_func,
+                    input_matrix = data_frame %>% as.matrix,
+                    method = "BFGS",
+                    control = list(trace = TRUE))
+  
+  data_filt <- data_frame %>%
+    use_series(spot) %>%
+    subtract(season_func(seas_fit %>% use_Series(par),
+                         select(data_frame, -spot)))
+  
+  return(data_filt)
 }

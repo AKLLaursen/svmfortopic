@@ -4,6 +4,8 @@
 `%>%` <- magrittr::`%>%`
 #' @importFrom magrittr add
 magrittr <- magrittr::add
+#' @importFrom magrittr use_series
+use_series <- magrittr::use_series
 
 # Imports from rvest
 
@@ -26,3 +28,5 @@ ungroup <- dplyr::ungroup
 summarise <- dplyr::summarise
 #' @importFrom dplyr mutate
 mutate <- dplyr::mutate
+#' @importFrom dplyr n
+n <- dplyr::n
