@@ -6,6 +6,10 @@
 magrittr <- magrittr::add
 #' @importFrom magrittr use_series
 use_series <- magrittr::use_series
+#' @importFrom magrittr extract
+extract <- magrittr::extract
+#' @importFrom magrittr set_names
+set_names <- magrittr::set_names
 
 # Imports from rvest
 
@@ -30,3 +34,9 @@ summarise <- dplyr::summarise
 mutate <- dplyr::mutate
 #' @importFrom dplyr n
 n <- dplyr::n
+#' @importFrom dplyr select
+select <- dplyr::select
+#' @importFrom dplyr filter
+filter <- dplyr::filter
+#' @importFrom dplyr transmute
+transmute <- dplyr::transmute

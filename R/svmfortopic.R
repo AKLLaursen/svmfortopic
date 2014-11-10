@@ -49,7 +49,7 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
     if (market == "Spot") {
       
       epex_sp <-
-        html(paste0("http://www.epexspot.com/en/market-data/auction/auction-ta,"
+        html(paste0("http://www.epexspot.com/en/market-data/auction/auction-ta",
                     "ble/",
                     date_scr[ii],
                     "/",
@@ -78,7 +78,7 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
     } else if (market == "Intraday") {
       
       epex_sp <-
-        html(paste0("http://www.epexspot.com/en/market-data/intraday/intraday-,"
+        html(paste0("http://www.epexspot.com/en/market-data/intraday/intraday-",
                     "table/",
                     date_scr[ii],
                     "/",
@@ -180,10 +180,25 @@ na_filter <- function(input_data) {
 }
 
 #' Function getting holiday dummies
-#' @param start_date 
+#' @param from_date A string with the start date of the desired series
+#' @param to_date A string with the end date of the desired series
+#' @param country A string with the desired country iso id. Takes the values DE, 
+#' FR and CH. Default is DE.
+#' @return output_frame A dataframe containing date and seleced countries.
+#' @export
 #' 
-get_holi_dum <- function(start_date, end_date, country) {
+get_holi_dum <- function(from_date, to_date, country = "de") {
+  cat("Getting dummies")
   
+  csv_file <- system.file("csv/holidays.csv", package = "svmfortopic")
+  output_frame <- read.csv(csv_file, sep = ";", stringsAsFactors = FALSE) %>%
+    select(date, one_of(country)) %>%
+    filter(date >= from_date & date <= to_date) %>%
+    mutate(date = as.Date(date)) %>%
+    set_names(c("date", "is_holiday"))
+  
+  cat(" ... Done\n")
+  return(output_frame)
 }
 
 #' Function calculating the exponentially weighted moving average of the input
@@ -193,6 +208,7 @@ get_holi_dum <- function(start_date, end_date, country) {
 #' @param lambda A double, the lambda parameter for the ewma. Default value is
 #' 0.975
 #' @return An atomic vector with the transformed data.
+#' @export
 ewma <- function(input_vector, lambda = 0.975) {
   output_vector <- input_vector
   for (ii in 2:length(input_vector)) {
@@ -208,6 +224,7 @@ ewma <- function(input_vector, lambda = 0.975) {
 #' @param beta An atomic vector containing the parameters.
 #' @param x A dataframe containing the variables, built as [trend, ones, ewma,
 #' dummies].
+#' @export
 season_func <- function(beta, x) {
   beta[1] * sin(2 * pi * (x[, 1] / 365 + x[, 2])) + beta[3] * x[, 2] +
     beta[4:nrows(beta)] %*% t(x[, 3:ncol(x)])
@@ -218,6 +235,7 @@ season_func <- function(beta, x) {
 #' @param beta An atomic vector containing the parameters.
 #' @param x A dataframe containing the variables, built as [time_series, trend,
 #' ones, ewma, dummies].
+#' @export
 error_func <- function(beta, x) {
   sum((x[, 1] - season_func(beta, x[, 2:ncol(x)])) ** 2)
 }
@@ -225,24 +243,26 @@ error_func <- function(beta, x) {
 #' Function for filtering seasonalities
 #' 
 #' @param input_frame A data frame containing the times series data.
-#' @return 
-deseason <- function(input_frame) {
+#' @return data_filt To be determined
+deseason <- function(input_frame) {  
   data_frame <- input_frame %>%
+    left_join(get_holi_dum(head(input_frame$date, 1),
+                           tail(input_frame$date, 1)),
+              by = "date") %>%
     transmute(spot,
-              trend = 1:n,
+              trend = 1:n(),
               ones = 1,
-              week_day = date %>% as.Date %>% format("%a") %>% as.factor,
-              hour = hour %>% as.factor,½½½
               e_spot = ewma(spot),
-              dummy = get_de_dummies(head(date, 1), tail(date, 1))) %>%
-    na.omit
+              is_holiday,
+              week_day = date %>% as.Date %>% format("%a") %>% as.factor,
+              hour = hour %>% as.factor)
   
   data_frame <- cbind(data_frame,
                       data.frame(model.matrix(~ week_day - 1,
                                               data = data_frame)),
                       data.frame(model.matrix(~ hour - 1,
                                               data = data_frame))) %>%
-    select(-date, -hour, -week_day, -week_dayFri, -value_hour1)
+    select(-hour, -week_day, -week_dayMon, -hour1)
     
   seas_fit <- optim(rep(2, 34),
                     error_func,
