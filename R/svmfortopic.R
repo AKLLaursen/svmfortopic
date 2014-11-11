@@ -226,8 +226,8 @@ ewma <- function(input_vector, lambda = 0.975) {
 #' dummies].
 #' @export
 season_func <- function(beta, x) {
-  beta[1] * sin(2 * pi * (x[, 1] / 365 + x[, 2])) + beta[3] * x[, 2] +
-    beta[4:nrows(beta)] %*% t(x[, 3:ncol(x)])
+  beta[1] * sin(2 * pi * (x[, 1] / 365 + beta[2] * x[, 2])) + beta[3] * x[, 2] +
+    beta[4:length(beta)] %*% t(x[, 3:ncol(x)])
 }
 
 #' Squared error function
@@ -266,9 +266,17 @@ deseason <- function(input_frame) {
     
   seas_fit <- optim(rep(2, 34),
                     error_func,
-                    input_matrix = data_frame %>% as.matrix,
-                    method = "BFGS",
-                    control = list(trace = TRUE))
+                    x = data_frame %>% as.matrix,
+#                     method = "BFGS",
+                    control = list(
+                      trace = TRUE,
+                      maxit = 100000))
+  
+  
+  
+  
+
+
   
   data_filt <- data_frame %>%
     use_series(spot) %>%
