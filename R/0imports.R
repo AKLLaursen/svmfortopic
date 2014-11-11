@@ -20,7 +20,7 @@ html_nodes <- rvest::html_nodes
 #' @importFrom rvest html_text
 html_text <- rvest::html_text
 
-# Imports 
+# Imports from dplyr
 
 #' @importFrom dplyr rbind_all
 rbind_all <- dplyr::rbind_all
@@ -40,3 +40,8 @@ select <- dplyr::select
 filter <- dplyr::filter
 #' @importFrom dplyr transmute
 transmute <- dplyr::transmute
+
+# Imports from broom
+
+#' @importFrom broom
+tidy <- broom::tidy

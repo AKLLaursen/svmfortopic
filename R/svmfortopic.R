@@ -218,70 +218,98 @@ ewma <- function(input_vector, lambda = 0.975) {
   return(output_vector)
 }
 
-#' Function calculating the long run trend seasonalities and short run
-#' seasonalities based on Janczura et. al. 2012.
-#' 
-#' @param beta An atomic vector containing the parameters.
-#' @param x A dataframe containing the variables, built as [trend, ones, ewma,
-#' dummies].
-#' @export
-season_func <- function(beta, x) {
-  beta[1] * sin(2 * pi * (x[, 1] / 365 + beta[2] * x[, 2])) + beta[3] * x[, 2] +
-    beta[4:length(beta)] %*% t(x[, 3:ncol(x)])
-}
-
-#' Squared error function
-#' 
-#' @param beta An atomic vector containing the parameters.
-#' @param x A dataframe containing the variables, built as [time_series, trend,
-#' ones, ewma, dummies].
-#' @export
-error_func <- function(beta, x) {
-  sum((x[, 1] - season_func(beta, x[, 2:ncol(x)])) ** 2)
-}
-
 #' Function for filtering seasonalities
 #' 
 #' @param input_frame A data frame containing the times series data.
 #' @return data_filt To be determined
 deseason <- function(input_frame) {  
   data_frame <- input_frame %>%
+    transmute(spot,
+              trend = 1:n(),
+              ewma = ewma(spot))
+  
+  # Run linear and non-linear combinations to obtain starting values.
+  data_frame_init <- data_frame %>%
+    transmute(spot,
+              trend = sin(2 * pi * (trend / 365 + 1)),
+              ewma = ewma(spot))
+  out_init <- lm(spot ~ trend + ewma, data = data_frame_init) %>%
+    tidy %>%
+    use_series(estimate)    
+
+  out_init_1 <- nls(spot ~ (out_init[2] * sin(2 * pi * (trend / 365 + beta_2)) +
+                              out_init[1] + out_init[3] * ewma),
+                    data = data_frame,
+                    start = list(
+                      beta_2 = 1),
+                    trace = TRUE,
+                    control = list(
+                      maxiter = 5000)) %>%
+    tidy %>%
+    use_series(estimate)
+  
+  data_frame_init_1 <- data_frame %>%
+    transmute(spot,
+              trend = sin(2 * pi * (trend / 365 + out_init_1[1])),
+              ewma = ewma(spot))
+  out_init_2 <- lm(spot ~ trend + ewma, data = test3) %>%
+    tidy %>%
+    use_series(estimate)
+  
+  # Run model
+  trend_seas_fit <- nls(spot ~ (beta_1 * sin(2 * pi * (trend / 365 + beta_2)) +
+                                  beta_3 + beta_4 * ewma),
+                        data = data_frame,
+                        start = list(
+                          beta_1 = out_init_2[2],
+                          beta_2 = 0.7915705,
+                          beta_3 = out_init_2[1],
+                          beta_4 = out_init_2[3]),
+                        trace = TRUE) %>%
+    tidy %>%
+    use_series(estimate)
+#  # Converges to same result for resonable starting values. Beta2 is the
+#  # sensitive parameter.
+#   trend_seas_fit <- nls(spot ~ (beta_1 * sin(2 * pi * (trend / 365 + beta_2)) +
+#                                   beta_3 + beta_4 * ewma),
+#                         data = data_frame,
+#                         start = list(
+#                           beta_1 = 10,
+#                           beta_2 = 10,
+#                           beta_3 = 10,
+#                           beta_4 = 10),
+#                         trace = TRUE,
+#                         algorithm = "port")
+  
+  data_frame_post_LTSC <- input_frame %>%
+    transmute(trend = 1:n(),
+              ewma = ewma(spot),
+              spot = spot - (trend_seas_fit[1] * 
+                               sin(2 * pi * (trend / 365 + trend_seas_fit[2])) -
+                               trend_seas_fit[3] + trend_seas_fit[4] * ewma),
+              date,
+              hour) %>%
+    select(-trend, -ewma) %>%
     left_join(get_holi_dum(head(input_frame$date, 1),
                            tail(input_frame$date, 1)),
               by = "date") %>%
     transmute(spot,
-              trend = 1:n(),
-              ones = 1,
-              e_spot = ewma(spot),
               is_holiday,
               week_day = date %>% as.Date %>% format("%a") %>% as.factor,
               hour = hour %>% as.factor)
-  
-  data_frame <- cbind(data_frame,
-                      data.frame(model.matrix(~ week_day - 1,
-                                              data = data_frame)),
-                      data.frame(model.matrix(~ hour - 1,
-                                              data = data_frame))) %>%
+
+  data_frame_post_LTSC <- cbind(data_frame_post_LTSC,
+                                data.frame(
+                                  model.matrix(~ week_day - 1,
+                                               data = data_frame_post_LTSC)),
+                                data.frame(
+                                  model.matrix(~ hour - 1,
+                                               data = data_frame_post_LTSC))
+                                ) %>%
     select(-hour, -week_day, -week_dayMon, -hour1)
-    
-  seas_fit <- optim(rep(2, 34),
-                    error_func,
-                    x = data_frame %>% as.matrix,
-#                     method = "BFGS",
-                    control = list(
-                      trace = TRUE,
-                      maxit = 100000))
-  
-  
-  
+
+  trend_seas_fit <- lm(spot ~ is_holiday:)
   
 
-
-  
-  data_filt <- data_frame %>%
-    use_series(spot) %>%
-    subtract(season_func(seas_fit %>% use_Series(par),
-                         select(data_frame, -spot)))
-  
   return(data_filt)
 }
