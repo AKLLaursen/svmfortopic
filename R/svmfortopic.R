@@ -216,7 +216,7 @@ ewma <- function(input_vector, lambda = 0.975) {
   return(output_vector)
 }
 
-#' Function for filtering seasonalities
+#' Function for filtering seasonalities based on XXX
 #' 
 #' @param input_frame A data frame containing the times series data.
 #' @return data_filt To be determined
@@ -309,4 +309,10 @@ deseason_spot <- function(input_frame) {
                           spot = short_seas_fit$residuals)
 
   return(data_filt)
+}
+#'
+
+outlier_filt <- function(data_input)
+{
+  
 }
