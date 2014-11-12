@@ -43,5 +43,5 @@ transmute <- dplyr::transmute
 
 # Imports from broom
 
-#' @importFrom broom
+#' @importFrom broom tidy
 tidy <- broom::tidy

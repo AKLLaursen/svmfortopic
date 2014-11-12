@@ -12,5 +12,8 @@ Description: Provides all data used in the project topic by Andreas Keller Leth
 Imports:
     magrittr,
     rvest,
-    dplyr
+    dplyr,
+    broom,
+    XML,
+    lazyeval
 License: LICENCE

@@ -185,7 +185,6 @@ na_filter <- function(input_data) {
 #' @param country A string with the desired country iso id. Takes the values DE, 
 #' FR and CH. Default is DE.
 #' @return output_frame A dataframe containing date and seleced countries.
-#' @export
 #' 
 get_holi_dum <- function(from_date, to_date, country = "de") {
   cat("Getting dummies")
@@ -208,7 +207,6 @@ get_holi_dum <- function(from_date, to_date, country = "de") {
 #' @param lambda A double, the lambda parameter for the ewma. Default value is
 #' 0.975
 #' @return An atomic vector with the transformed data.
-#' @export
 ewma <- function(input_vector, lambda = 0.975) {
   output_vector <- input_vector
   for (ii in 2:length(input_vector)) {
@@ -222,9 +220,9 @@ ewma <- function(input_vector, lambda = 0.975) {
 #' 
 #' @param input_frame A data frame containing the times series data.
 #' @return data_filt To be determined
-deseason <- function(input_frame) {  
+deseason_spot <- function(input_frame) {  
   data_frame <- input_frame %>%
-    transmute(spot,
+    transmute(spot = spot - mean(spot),
               trend = 1:n(),
               ewma = ewma(spot))
   
@@ -233,7 +231,8 @@ deseason <- function(input_frame) {
     transmute(spot,
               trend = sin(2 * pi * (trend / 365 + 1)),
               ewma = ewma(spot))
-  out_init <- lm(spot ~ trend + ewma, data = data_frame_init) %>%
+  out_init <- lm(spot ~ trend + ewma,
+                 data = data_frame_init) %>%
     tidy %>%
     use_series(estimate)    
 
@@ -252,7 +251,8 @@ deseason <- function(input_frame) {
     transmute(spot,
               trend = sin(2 * pi * (trend / 365 + out_init_1[1])),
               ewma = ewma(spot))
-  out_init_2 <- lm(spot ~ trend + ewma, data = test3) %>%
+  out_init_2 <- lm(spot ~ trend + ewma,
+                   data = test3) %>%
     tidy %>%
     use_series(estimate)
   
@@ -265,21 +265,14 @@ deseason <- function(input_frame) {
                           beta_2 = 0.7915705,
                           beta_3 = out_init_2[1],
                           beta_4 = out_init_2[3]),
-                        trace = TRUE) %>%
+                        trace = TRUE,
+                        algorithm = "default", # GN. Same convergence for "port"
+                        control = list(
+                          maxiter = 100,
+                          tol = 1e-06,
+                          printEval = TRUE)) %>%
     tidy %>%
     use_series(estimate)
-#  # Converges to same result for resonable starting values. Beta2 is the
-#  # sensitive parameter.
-#   trend_seas_fit <- nls(spot ~ (beta_1 * sin(2 * pi * (trend / 365 + beta_2)) +
-#                                   beta_3 + beta_4 * ewma),
-#                         data = data_frame,
-#                         start = list(
-#                           beta_1 = 10,
-#                           beta_2 = 10,
-#                           beta_3 = 10,
-#                           beta_4 = 10),
-#                         trace = TRUE,
-#                         algorithm = "port")
   
   data_frame_post_LTSC <- input_frame %>%
     transmute(trend = 1:n(),
@@ -308,8 +301,12 @@ deseason <- function(input_frame) {
                                 ) %>%
     select(-hour, -week_day, -week_dayMon, -hour1)
 
-  trend_seas_fit <- lm(spot ~ is_holiday:)
+  short_seas_fit <- lm(spot ~ .,
+                       data = data_frame_post_LTSC)
   
+  data_filt <- data.frame(date = input_frame$date,
+                          hour = input_frame$hour,
+                          spot = short_seas_fit$residuals)
 
   return(data_filt)
 }
