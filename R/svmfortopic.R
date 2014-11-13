@@ -219,7 +219,8 @@ ewma <- function(input_vector, lambda = 0.975) {
 #' Function for filtering seasonalities based on XXX
 #' 
 #' @param input_frame A data frame containing the times series data.
-#' @return data_filt To be determined
+#' @return data_filt Same dataframe with deseasonalised price
+#' @export
 deseason_price <- function(input_frame) {  
   data_frame <- input_frame %>%
     transmute(price = price - mean(price),
@@ -252,7 +253,7 @@ deseason_price <- function(input_frame) {
               trend = sin(2 * pi * (trend / 365 + out_init_1[1])),
               ewma = ewma(price))
   out_init_2 <- lm(price ~ trend + ewma,
-                   data = test3) %>%
+                   data = data_frame_init_1) %>%
     tidy %>%
     use_series(estimate)
   
@@ -310,10 +311,13 @@ deseason_price <- function(input_frame) {
 
   return(data_filt)
 }
-#'
-
-outlier_filt <- function(data_input)
+#' Outlier filter function
+#' 
+#' @param data_input A data frame containing a price to be outlier filtered.
+#' @param std_filt Number of standard deviations to filter on.
+outlier_filt <- function(input_frame, std_filt)
 {
-  data_transform <- data_input %>%
-    use_series(price)
+  data_transform <- input_frame
+  data_transform$price[which(data_transform$price > std_filt * sd(data_transform$price) |
+                               data_transform$price < - std_filt * sd(data_transform$price))] <- NA
 }
