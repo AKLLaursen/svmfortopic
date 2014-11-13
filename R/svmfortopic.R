@@ -16,25 +16,25 @@
 #' Maintainer Andreas Keller Leth Laursen <andreas.keller[at]gmail.com>
 NULL
 
-#' Function scraping various spotprices and volumes from the Epexspot website
+#' Function scraping various priceprices and volumes from the Epexprice website
 #'
 #' @param from_date A string with the start date of the desired series
 #' @param to_date A string with the end date of the desired series
 #' @param country A string with the desired country iso id. Takes the values DE, 
 #' FR and CH. Default is DE.
-#' @param market A string indicating market type. Takes the values Spot and
-#' Intraday. Deafult is Spot.
+#' @param market A string indicating market type. Takes the values price and
+#' Intraday. Deafult is price.
 #' @param contract A string indicating contract type for intraday. Take the
 #' values H and Q. Default is H.
-#' @return a dataframe containing the dates, hours, spot and volumes
+#' @return a dataframe containing the dates, hours, price and volumes
 #' @export
-scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
+scrape_epex <- function(from_date, to_date, country = "DE", market = "price",
                         contract = "H")
   {
   cat("Initialising scraping routine, getting dates ...\n")
   time_stamp <- Sys.time()
   
-  if (market == "Spot") {
+  if (market == "price") {
     date_scr <- seq(as.Date(from_date) -6, as.Date(to_date) -6, by = 1) %>%
       as.character
   } else if (market == "Intraday") {
@@ -46,10 +46,10 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
   
   data_out <- list()
   for (ii in 1:length(date_scr)) {
-    if (market == "Spot") {
+    if (market == "price") {
       
       epex_sp <-
-        html(paste0("http://www.epexspot.com/en/market-data/auction/auction-ta",
+        html(paste0("http://www.epexprice.com/en/market-data/auction/auction-ta",
                     "ble/",
                     date_scr[ii],
                     "/",
@@ -65,11 +65,11 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
       data_out[[ii]] <- data.frame(
         date = date_scr[ii] %>% as.Date %>% add(6),
         hour = if (length(data_scr) > 48) c(1:3, 3:24) else 1:24,
-        spot = data_scr[c(TRUE, FALSE)],
+        price = data_scr[c(TRUE, FALSE)],
         volume = data_scr[c(FALSE, TRUE)],
         created = time_stamp) %>%
         group_by(date, hour) %>%
-        summarise(spot = mean(spot, na.rm = TRUE),
+        summarise(price = mean(price, na.rm = TRUE),
                          volume = mean(volume, na.rm = TRUE)) %>%
         ungroup
       
@@ -78,7 +78,7 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
     } else if (market == "Intraday") {
       
       epex_sp <-
-        html(paste0("http://www.epexspot.com/en/market-data/intraday/intraday-",
+        html(paste0("http://www.epexprice.com/en/market-data/intraday/intraday-",
                     "table/",
                     date_scr[ii],
                     "/",
@@ -99,10 +99,10 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
         data_out[[ii]] <- data.frame(
           date = date_scr[ii] %>% as.Date,
           hour = if (length(data_scr) > 24) c(1:3, 3:24) else 1:24,
-          vwap = data_scr,
+          price = data_scr,
           created = time_stamp) %>%
           group_by(date, hour) %>%
-          summarise(vwap = mean(vwap, na.rm = TRUE)) %>%
+          summarise(price = mean(price, na.rm = TRUE)) %>%
           ungroup
         
         cat(paste0(date_scr[ii], " ...\n"))
@@ -115,10 +115,10 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
         data_out[[ii]] <- data.frame(
           date = date_scr[ii] %>% as.Date,
           quarter = if (length(data_scr) > 96) c(1:12, 9:12, 13:96) else 1:96,
-          vwap = data_scr,
+          price = data_scr,
           created = time_stamp) %>%
           group_by(date, quarter) %>%
-          summarise(vwap = mean(vwap, na.rm = TRUE)) %>%
+          summarise(price = mean(price, na.rm = TRUE)) %>%
           ungroup
         
         cat(paste0(date_scr[ii], " ...\n"))
@@ -131,15 +131,15 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
       stop("Market not recognised\n")
     }
   }
-  if (market == "Spot") {
+  if (market == "price") {
     data_out <- data_out %>%
       rbind_all%>%
-      mutate(spot = na_filter(spot),
+      mutate(price = na_filter(price),
              volume = na_filter(volume))
   } else if (market == "Intraday") {
     data_out <- data_out %>%
       rbind_all %>%
-      mutate(vwap = na_filter(vwap))
+      mutate(price = na_filter(price))
   } else {
     stop("Please specify correct market type.")
   }
@@ -220,23 +220,23 @@ ewma <- function(input_vector, lambda = 0.975) {
 #' 
 #' @param input_frame A data frame containing the times series data.
 #' @return data_filt To be determined
-deseason_spot <- function(input_frame) {  
+deseason_price <- function(input_frame) {  
   data_frame <- input_frame %>%
-    transmute(spot = spot - mean(spot),
+    transmute(price = price - mean(price),
               trend = 1:n(),
-              ewma = ewma(spot))
+              ewma = ewma(price))
   
   # Run linear and non-linear combinations to obtain starting values.
   data_frame_init <- data_frame %>%
-    transmute(spot,
+    transmute(price,
               trend = sin(2 * pi * (trend / 365 + 1)),
-              ewma = ewma(spot))
-  out_init <- lm(spot ~ trend + ewma,
+              ewma = ewma(price))
+  out_init <- lm(price ~ trend + ewma,
                  data = data_frame_init) %>%
     tidy %>%
     use_series(estimate)    
 
-  out_init_1 <- nls(spot ~ (out_init[2] * sin(2 * pi * (trend / 365 + beta_2)) +
+  out_init_1 <- nls(price ~ (out_init[2] * sin(2 * pi * (trend / 365 + beta_2)) +
                               out_init[1] + out_init[3] * ewma),
                     data = data_frame,
                     start = list(
@@ -248,16 +248,16 @@ deseason_spot <- function(input_frame) {
     use_series(estimate)
   
   data_frame_init_1 <- data_frame %>%
-    transmute(spot,
+    transmute(price,
               trend = sin(2 * pi * (trend / 365 + out_init_1[1])),
-              ewma = ewma(spot))
-  out_init_2 <- lm(spot ~ trend + ewma,
+              ewma = ewma(price))
+  out_init_2 <- lm(price ~ trend + ewma,
                    data = test3) %>%
     tidy %>%
     use_series(estimate)
   
   # Run model
-  trend_seas_fit <- nls(spot ~ (beta_1 * sin(2 * pi * (trend / 365 + beta_2)) +
+  trend_seas_fit <- nls(price ~ (beta_1 * sin(2 * pi * (trend / 365 + beta_2)) +
                                   beta_3 + beta_4 * ewma),
                         data = data_frame,
                         start = list(
@@ -276,8 +276,8 @@ deseason_spot <- function(input_frame) {
   
   data_frame_post_LTSC <- input_frame %>%
     transmute(trend = 1:n(),
-              ewma = ewma(spot),
-              spot = spot - (trend_seas_fit[1] * 
+              ewma = ewma(price),
+              price = price - (trend_seas_fit[1] * 
                                sin(2 * pi * (trend / 365 + trend_seas_fit[2])) -
                                trend_seas_fit[3] + trend_seas_fit[4] * ewma),
               date,
@@ -286,7 +286,7 @@ deseason_spot <- function(input_frame) {
     left_join(get_holi_dum(head(input_frame$date, 1),
                            tail(input_frame$date, 1)),
               by = "date") %>%
-    transmute(spot,
+    transmute(price,
               is_holiday,
               week_day = date %>% as.Date %>% format("%a") %>% as.factor,
               hour = hour %>% as.factor)
@@ -301,12 +301,12 @@ deseason_spot <- function(input_frame) {
                                 ) %>%
     select(-hour, -week_day, -week_dayMon, -hour1)
 
-  short_seas_fit <- lm(spot ~ .,
+  short_seas_fit <- lm(price ~ .,
                        data = data_frame_post_LTSC)
   
   data_filt <- data.frame(date = input_frame$date,
                           hour = input_frame$hour,
-                          spot = short_seas_fit$residuals)
+                          price = short_seas_fit$residuals)
 
   return(data_filt)
 }
@@ -314,5 +314,6 @@ deseason_spot <- function(input_frame) {
 
 outlier_filt <- function(data_input)
 {
-  
+  data_transform <- data_input %>%
+    use_series(price)
 }
