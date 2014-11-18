@@ -3,12 +3,12 @@
 \alias{outlier_filt}
 \title{Outlier filter function}
 \usage{
-outlier_filt(data_input, std_filt)
+outlier_filt(input_frame, std_filt = 4)
 }
 \arguments{
-\item{data_input}{A data frame containing a price to be outlier filtered.}
-
 \item{std_filt}{Number of standard deviations to filter on.}
+
+\item{data_input}{A data frame containing a price to be outlier filtered.}
 }
 \description{
 Outlier filter function

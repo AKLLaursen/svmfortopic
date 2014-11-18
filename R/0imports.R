@@ -40,6 +40,8 @@ select <- dplyr::select
 filter <- dplyr::filter
 #' @importFrom dplyr transmute
 transmute <- dplyr::transmute
+#' @importFrom dplyr left_join
+left_join <- dplyr::left_join
 
 # Imports from broom
 

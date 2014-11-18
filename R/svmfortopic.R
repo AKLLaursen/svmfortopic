@@ -315,9 +315,49 @@ deseason_price <- function(input_frame) {
 #' 
 #' @param data_input A data frame containing a price to be outlier filtered.
 #' @param std_filt Number of standard deviations to filter on.
-outlier_filt <- function(input_frame, std_filt)
+#' @export
+outlier_filt <- function(input_frame, std_filt = 5)
 {
+  cat("Filtering Outliers\n")
+  cat(paste0("Outliers outside of ", std_filt, " being replaced by NA"))
   data_transform <- input_frame
-  data_transform$price[which(data_transform$price > std_filt * sd(data_transform$price) |
-                               data_transform$price < - std_filt * sd(data_transform$price))] <- NA
+  data_transform$price[which(data_transform$price >
+                               std_filt * sd(data_transform$price) |
+                               data_transform$price <
+                               - std_filt * sd(data_transform$price))
+                       ] <- NA
+  cat(" ... Done")
+  output_frame <- data_transform %>% 
+    mutate(price = na_filter(price))
+  
+  cat(" ... Outliers filtered")
+  return(output_frame)
+}
+
+#' Function performing all calculation and creating all tables for topic report
+#' 
+do_study <- function(spot_data) {
+  
+  # Filter spot data
+  spot_data_filtered <- spot_data %>%
+    deseason_price() %>%
+    outlier_filt()
+  
+  # Stationarity test, augmented Dickey-Fuller
+  DF <- vector()
+  for (ii in 1:48) {
+    DF[ii] <- tseries::adf.test(spot_data_filtered$price, k = ii) %>%
+      use_series(p.value)
+  }
+  
+  # ARCH test
+  
+  
+  # Forecasting 24 hours in one model
+  
+  # Forecasting each of the 24 hours in 24 models model
+  
+  # Forecasting the base using the base of all days
+  
+  # Forecasting the base using 24 previous observations (multicollinearity)
 }
