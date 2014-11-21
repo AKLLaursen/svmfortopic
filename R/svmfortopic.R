@@ -361,3 +361,57 @@ do_study <- function(spot_data) {
   
   # Forecasting the base using 24 previous observations (multicollinearity)
 }
+
+#' Function for plotting the maximal classifier
+#' @export
+#' 
+max_marg_class <- function (set_seed = 1001) {
+  
+  # Create separable points.
+  set.seed(set_seed)
+
+  x = matrix(rnorm(40), 20, 2)
+  y = rep(c(-1, 1), c(10, 10))
+  x[y == 1, ] = x[y == 1, ] + 2
+  x[y == -1, ] = x[y == -1, ] - 2
+  
+  data_frame <- data.frame(x,
+                           y = y %>% as.factor)
+
+  # Fit model
+  model_out <- e1071::svm(y ~ .,
+                          data = data_frame,
+                          kernel = "linear",
+                          gamma = 0,
+                          scale = FALSE)
+  
+  # Calculate separating hyperplane and margins
+  w <- t(model_out$coefs) %*% model_out$SV
+  sloper <- -w[1] / w[2]
+  hyper_inter <- model_out$rho / w[2]
+  
+  b_down <- head(model_out$SV, 1)
+  lower_inter <- b_down[2] - a * b_down[1]
+  b_up <- tail(model_out$SV, 1)
+  upper_inter <- b_up[2] - a * b_up[1]
+  
+  idx <- model_out$index
+  
+  ggplot(data_frame,
+         aes(x = X1, y = X2, colour = y)) +
+    geom_point(size = 3,
+               shape = 19) +
+    scale_color_manual(values = c("red", "blue")) +
+#     geom_point(data = data_frame,
+#                aes(x = X1[idx], y = X2[idx]),
+#                size = 5,
+#                shape = 1) +
+    geom_abline(intercept = hyper_inter,
+                slope = sloper) +
+    geom_abline(intercept = lower_inter,
+                slope = sloper,
+                linetype="dashed") +
+    geom_abline(intercept = upper_inter,
+                slope = sloper,
+                linetype="dashed")
+}
