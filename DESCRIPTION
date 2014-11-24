@@ -15,5 +15,8 @@ Imports:
     dplyr,
     broom,
     XML,
-    lazyeval
+    lazyeval,
+    ggplot2,
+    e1071,
+    tseries
 License: LICENCE

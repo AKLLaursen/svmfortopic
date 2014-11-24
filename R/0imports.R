@@ -47,3 +47,25 @@ left_join <- dplyr::left_join
 
 #' @importFrom broom tidy
 tidy <- broom::tidy
+
+# Imports from e1071
+
+#' @importFrom e1071 svm
+svm <- e1071::svm
+
+# Imports from ggplot2
+
+#' @importFrom ggplot2 ggplot
+ggplot <- ggplot2::ggplot
+#' @importFrom ggplot2 geom_point
+geom_point <- ggplot2::geom_point
+#' @importFrom ggplot2 scale_color_manual
+scale_color_manual <- ggplot2::scale_color_manual
+#' @importFrom ggplot2 geom_abline
+geom_abline <- ggplot2::geom_abline
+#' @importFrom ggplot2 ggsave
+ggsave <- ggplot2::ggsave
+
+# Imports from tseries
+#' @importFrom tseries adf.test
+adf.test <- tseries::adf.test

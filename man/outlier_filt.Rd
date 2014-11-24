@@ -3,7 +3,7 @@
 \alias{outlier_filt}
 \title{Outlier filter function}
 \usage{
-outlier_filt(input_frame, std_filt = 4)
+outlier_filt(input_frame, std_filt = 5)
 }
 \arguments{
 \item{std_filt}{Number of standard deviations to filter on.}
