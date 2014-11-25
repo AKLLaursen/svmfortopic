@@ -1,4 +1,6 @@
-#' Function for plotting the maximal margin classifier
+#' Function for plotting the maximal margin classifier. Function inspired by
+#' http://scikit-learn.org/0.10/auto_examples/svm/plot_separating_hyperplane.htm
+#' l
 #' @param set_seed An integer, setting the seed. Default value matches graph in
 #' topic
 #' @param save_path A path string. If given, saves an .eps file to local hard
