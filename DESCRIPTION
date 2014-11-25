@@ -18,5 +18,6 @@ Imports:
     lazyeval,
     ggplot2,
     e1071,
-    tseries
+    tseries,
+    gridExtra
 License: LICENCE

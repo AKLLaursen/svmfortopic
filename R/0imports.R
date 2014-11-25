@@ -65,6 +65,23 @@ scale_color_manual <- ggplot2::scale_color_manual
 geom_abline <- ggplot2::geom_abline
 #' @importFrom ggplot2 ggsave
 ggsave <- ggplot2::ggsave
+#' @importFrom ggplot2 stat_function
+stat_function <- ggplot2::stat_function
+#' @importFrom ggplot2 geom_hline
+geom_hline <- ggplot2::geom_hline
+#' @importFrom ggplot2 geom_vline
+geom_vline <- ggplot2::geom_vline
+#' @importFrom ggplot2 annotate
+annotate <- ggplot2::annotate
+#' @importFrom ggplot2 xlab
+xlab <- ggplot2::xlab
+#' @importFrom ggplot2 ylab
+ylab <- ggplot2::ylab
+
+# Imports from gridExtra
+
+#' @importFrom gridExtra arrangeGrob
+arrangeGrob <- gridExtra::arrangeGrob
 
 # Imports from tseries
 #' @importFrom tseries adf.test
