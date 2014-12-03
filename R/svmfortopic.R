@@ -16,25 +16,27 @@
 #' Maintainer Andreas Keller Leth Laursen <andreas.keller[at]gmail.com>
 NULL
 
-#' Function scraping various priceprices and volumes from the Epexprice website
+#' Function scraping various spotprices and volumes from the Epexspot website
 #'
 #' @param from_date A string with the start date of the desired series
 #' @param to_date A string with the end date of the desired series
 #' @param country A string with the desired country iso id. Takes the values DE, 
 #' FR and CH. Default is DE.
-#' @param market A string indicating market type. Takes the values price and
-#' Intraday. Deafult is price.
+#' @param market A string indicating market type. Takes the values Spot and
+#' Intraday. Deafult is Spot.
 #' @param contract A string indicating contract type for intraday. Take the
 #' values H and Q. Default is H.
-#' @return a dataframe containing the dates, hours, price and volumes
+#' @param filter_missing A bolean, determining wether or not to replace missing
+#' values.
+#' @return a dataframe containing the dates, hours, spot and volumes
 #' @export
-scrape_epex <- function(from_date, to_date, country = "DE", market = "price",
-                        contract = "H")
-  {
+scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
+                        contract = "H", filter_missing = TRUE)
+{
   cat("Initialising scraping routine, getting dates ...\n")
   time_stamp <- Sys.time()
   
-  if (market == "price") {
+  if (market == "Spot") {
     date_scr <- seq(as.Date(from_date) -6, as.Date(to_date) -6, by = 1) %>%
       as.character
   } else if (market == "Intraday") {
@@ -46,10 +48,10 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "price",
   
   data_out <- list()
   for (ii in 1:length(date_scr)) {
-    if (market == "price") {
+    if (market == "Spot") {
       
       epex_sp <-
-        html(paste0("http://www.epexprice.com/en/market-data/auction/auction-ta",
+        html(paste0("http://www.epexspot.com/en/market-data/auction/auction-ta",
                     "ble/",
                     date_scr[ii],
                     "/",
@@ -65,12 +67,12 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "price",
       data_out[[ii]] <- data.frame(
         date = date_scr[ii] %>% as.Date %>% add(6),
         hour = if (length(data_scr) > 48) c(1:3, 3:24) else 1:24,
-        price = data_scr[c(TRUE, FALSE)],
+        spot = data_scr[c(TRUE, FALSE)],
         volume = data_scr[c(FALSE, TRUE)],
         created = time_stamp) %>%
         group_by(date, hour) %>%
-        summarise(price = mean(price, na.rm = TRUE),
-                         volume = mean(volume, na.rm = TRUE)) %>%
+        summarise(spot = mean(spot, na.rm = TRUE),
+                  volume = mean(volume, na.rm = TRUE)) %>%
         ungroup
       
       cat(paste0(as.character(as.Date(date_scr[ii]) + 6), " ...\n"))
@@ -78,7 +80,7 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "price",
     } else if (market == "Intraday") {
       
       epex_sp <-
-        html(paste0("http://www.epexprice.com/en/market-data/intraday/intraday-",
+        html(paste0("http://www.epexspot.com/en/market-data/intraday/intraday-",
                     "table/",
                     date_scr[ii],
                     "/",
@@ -99,10 +101,10 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "price",
         data_out[[ii]] <- data.frame(
           date = date_scr[ii] %>% as.Date,
           hour = if (length(data_scr) > 24) c(1:3, 3:24) else 1:24,
-          price = data_scr,
+          vwap = data_scr,
           created = time_stamp) %>%
           group_by(date, hour) %>%
-          summarise(price = mean(price, na.rm = TRUE)) %>%
+          summarise(vwap = mean(vwap, na.rm = TRUE)) %>%
           ungroup
         
         cat(paste0(date_scr[ii], " ...\n"))
@@ -115,10 +117,10 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "price",
         data_out[[ii]] <- data.frame(
           date = date_scr[ii] %>% as.Date,
           quarter = if (length(data_scr) > 96) c(1:12, 9:12, 13:96) else 1:96,
-          price = data_scr,
+          vwap = data_scr,
           created = time_stamp) %>%
           group_by(date, quarter) %>%
-          summarise(price = mean(price, na.rm = TRUE)) %>%
+          summarise(vwap = mean(vwap, na.rm = TRUE)) %>%
           ungroup
         
         cat(paste0(date_scr[ii], " ...\n"))
@@ -131,15 +133,19 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "price",
       stop("Market not recognised\n")
     }
   }
-  if (market == "price") {
+  if (market == "Spot") {
     data_out <- data_out %>%
-      rbind_all%>%
-      mutate(price = na_filter(price),
-             volume = na_filter(volume))
+      rbind_all %>%
+      transmute(date,
+                hour,
+                price = if (filter_missing == TRUE) na_filter(spot) else spot,
+                volume = if (filter_missing == TRUE) na_filter(volume) else volume)
   } else if (market == "Intraday") {
     data_out <- data_out %>%
       rbind_all %>%
-      mutate(price = na_filter(price))
+      transmute(date,
+                hour,
+                price = if (filter_missing == TRUE) na_filter(vwap) else vwap)
   } else {
     stop("Please specify correct market type.")
   }
@@ -159,20 +165,21 @@ na_filter <- function(input_data) {
     
   .idx <- which(is.na(input_data))
   
-  ii = 1
-  for (ii in 1:length(.idx)) {
-    for (jj in 1:(length(input_data) - .idx[ii])) {
-      if (!is.na(input_data[.idx[ii] + jj]) == TRUE) {
-        .bp <- jj
-        break
+  if (length(.idx) > 0) {
+    for (ii in 1:length(.idx)) {
+      for (jj in 1:(length(input_data) - .idx[ii])) {
+        if (!is.na(input_data[.idx[ii] + jj]) == TRUE) {
+          .bp <- jj
+          break
+        }
       }
-    }
-    if (is.null(.idx[ii - 1]) == TRUE) {
-      input_data[.idx[ii]] <- input_data[.idx[ii] + .bp]
-    } else {
-      input_data[.idx[ii]] <- input_data[.idx[ii] - 1] +
-        (input_data[.idx[ii] + .bp] - input_data[.idx[ii] - 1]) / (.bp + 1)
-      cat(paste0("Replaced ", ii, "\n"))
+      if (is.null(.idx[ii - 1]) == TRUE) {
+        input_data[.idx[ii]] <- input_data[.idx[ii] + .bp]
+      } else {
+        input_data[.idx[ii]] <- input_data[.idx[ii] - 1] +
+          (input_data[.idx[ii] + .bp] - input_data[.idx[ii] - 1]) / (.bp + 1)
+        cat(paste0("Replaced ", ii, "\n"))
+      }
     }
   }
   cat("... Done\n")
@@ -185,6 +192,7 @@ na_filter <- function(input_data) {
 #' @param country A string with the desired country iso id. Takes the values DE, 
 #' FR and CH. Default is DE.
 #' @return output_frame A dataframe containing date and seleced countries.
+#' @export
 #' 
 get_holi_dum <- function(from_date, to_date, country = "de") {
   cat("Getting dummies")
@@ -207,6 +215,7 @@ get_holi_dum <- function(from_date, to_date, country = "de") {
 #' @param lambda A double, the lambda parameter for the ewma. Default value is
 #' 0.975
 #' @return An atomic vector with the transformed data.
+#' @export
 ewma <- function(input_vector, lambda = 0.975) {
   output_vector <- input_vector
   for (ii in 2:length(input_vector)) {
@@ -221,7 +230,7 @@ ewma <- function(input_vector, lambda = 0.975) {
 #' @param input_frame A data frame containing the times series data.
 #' @return data_filt Same dataframe with deseasonalised price
 #' @export
-deseason_price <- function(input_frame) {  
+long_run_trend_season <- function(input_frame) {  
   data_frame <- input_frame %>%
     transmute(price = price - mean(price),
               trend = 1:n(),
@@ -263,7 +272,7 @@ deseason_price <- function(input_frame) {
                         data = data_frame,
                         start = list(
                           beta_1 = out_init_2[2],
-                          beta_2 = 0.7915705,
+                          beta_2 = out_init_1[1],
                           beta_3 = out_init_2[1],
                           beta_4 = out_init_2[3]),
                         trace = TRUE,
@@ -276,41 +285,46 @@ deseason_price <- function(input_frame) {
     use_series(estimate)
   
   data_frame_post_LTSC <- input_frame %>%
-    transmute(trend = 1:n(),
+    transmute(date,
+              trend = 1:n(),
               ewma = ewma(price),
               price = price - (trend_seas_fit[1] * 
-                               sin(2 * pi * (trend / 365 + trend_seas_fit[2])) -
-                               trend_seas_fit[3] + trend_seas_fit[4] * ewma),
-              date,
-              hour) %>%
-    select(-trend, -ewma) %>%
+                                 sin(2 * pi * (trend / 365 + trend_seas_fit[2])) -
+                                 trend_seas_fit[3] + trend_seas_fit[4] * ewma),
+              trend_seas = (trend_seas_fit[1] * 
+                              sin(2 * pi * (trend / 365 + trend_seas_fit[2])) -
+                              trend_seas_fit[3] + trend_seas_fit[4] * ewma)) %>%
+    select(-trend, -ewma)
+              
+}
+
+#' Function calculating short run season
+#' @param input_frame A data frame with a trend and a price
+#' @export
+#' 
+short_run_season <- function(input_frame) {
+  data_frame <- input_frame %>%
     left_join(get_holi_dum(head(input_frame$date, 1),
                            tail(input_frame$date, 1)),
               by = "date") %>%
     transmute(price,
               is_holiday,
-              week_day = date %>% as.Date %>% format("%a") %>% as.factor,
-              hour = hour %>% as.factor)
-
-  data_frame_post_LTSC <- cbind(data_frame_post_LTSC,
-                                data.frame(
-                                  model.matrix(~ week_day - 1,
-                                               data = data_frame_post_LTSC)),
-                                data.frame(
-                                  model.matrix(~ hour - 1,
-                                               data = data_frame_post_LTSC))
-                                ) %>%
-    select(-hour, -week_day, -week_dayMon, -hour1)
-
+              week_day = date %>% as.Date %>% format("%a") %>% as.factor)
+  
+  data_frame <- cbind(data_frame,
+                      data.frame(model.matrix(~ week_day - 1,
+                                               data = data_frame))) %>%
+    select(-week_day, -week_dayMon)
+  
   short_seas_fit <- lm(price ~ .,
                        data = data_frame_post_LTSC)
   
   data_filt <- data.frame(date = input_frame$date,
-                          hour = input_frame$hour,
                           price = short_seas_fit$residuals)
-
+  
   return(data_filt)
 }
+
 #' Outlier filter function
 #' 
 #' @param data_input A data frame containing a price to be outlier filtered.
@@ -360,4 +374,64 @@ do_study <- function(spot_data) {
   # Forecasting the base using the base of all days
   
   # Forecasting the base using 24 previous observations (multicollinearity)
+}
+
+#' Function doing base part of study
+#' 
+#' @export
+spot_base_study <- function() {
+  
+  # Take the mean across each day to find the base spot price
+  data_frame <- data_spot %>%
+    group_by(date) %>%
+    summarise(price = mean(price, na.rm = TRUE)) %>%
+    ungroup
+  
+  # Draw line plot to get feel of data series
+  draw_line_plot(data_frame,
+                 input = "price",
+                 xlabel = "Year",
+                 ylabel = "Base spot price, EUR/MWh")
+  
+  # Get unfiltered descriptive statistics
+  descriptives <- data_frame %>%
+    summarise(max = max(price),
+              min = min(price),
+              median = median(price, na.rm = TRUE),
+              mean = mean(price, na.rm = TRUE),
+              sd = sd(price, na.rm = TRUE))
+  
+  demean_data_frame <- data_frame %>%
+    transmute(date,
+              price = price - mean(price, na.rm = TRUE))
+  
+  # Plot autocorrelation
+  draw_acf(demean_data_frame, 96)
+  # Plot parellogram
+  draw_periodogram(demean_data_frame)
+  
+  # Clearly we see a seasonal pattern at lag 7 and at freqency 0.14 -> period
+  # 1/0.14 = 7.14. As such, we deseasonalise.
+  
+  # We separate the deseason into two parts, a LR trendseasonal term and a SR
+  # (weekly) seasonal term. Starting with LR
+  de_lrts_data_frame <- long_run_trend_season(demean_data_frame)
+  
+  # Plot estimated trendseas:
+  draw_line_plot(de_lrts_data_frame,
+                 input = "trend_seas",
+                 xlabel = "Year",
+                 ylabel = "Long run seasonal trend")
+  
+  deseason_data_frame <- short_run_season(de_lrts_data_frame)
+  
+  # Plot estimated deseason:
+  draw_line_plot(deseason_data_frame,
+                 input = "price",
+                 xlabel = "Year",
+                 ylabel = "Deseasonalised data")
+  # Plot autocorrelation
+  draw_acf(demean_data_frame, 96)
+  # Plot parellogram
+  draw_periodogram(demean_data_frame)
 }

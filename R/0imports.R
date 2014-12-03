@@ -77,6 +77,10 @@ annotate <- ggplot2::annotate
 xlab <- ggplot2::xlab
 #' @importFrom ggplot2 ylab
 ylab <- ggplot2::ylab
+#' @importFrom ggplot2 geom_line
+geom_line <- ggplot2::geom_line
+#' @importFrom ggplot2 geom_segment
+geom_segment <- ggplot2::geom_segment
 
 # Imports from gridExtra
 
