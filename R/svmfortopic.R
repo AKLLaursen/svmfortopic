@@ -317,7 +317,7 @@ short_run_season <- function(input_frame) {
     select(-week_day, -week_dayMon)
   
   short_seas_fit <- lm(price ~ .,
-                       data = data_frame_post_LTSC)
+                       data = data_frame)
   
   data_filt <- data.frame(date = input_frame$date,
                           price = short_seas_fit$residuals)
@@ -423,6 +423,12 @@ spot_base_study <- function() {
                  xlabel = "Year",
                  ylabel = "Long run seasonal trend")
   
+  # Plot detrended series
+  draw_line_plot(de_lrts_data_frame,
+                 input = "price",
+                 xlabel = "Year",
+                 ylabel = "Long run seasonal trend")
+  
   deseason_data_frame <- short_run_season(de_lrts_data_frame)
   
   # Plot estimated deseason:
@@ -431,7 +437,18 @@ spot_base_study <- function() {
                  xlabel = "Year",
                  ylabel = "Deseasonalised data")
   # Plot autocorrelation
-  draw_acf(demean_data_frame, 96)
+  draw_acf(deseason_data_frame, 96)
   # Plot parellogram
-  draw_periodogram(demean_data_frame)
+  draw_periodogram(deseason_data_frame)
+  
+  # Select best arima model
+  auto.arima(deseason_data_frame$price, max.p = 14, max.q = 14, max.order = 14, trace = TRUE)
+  out <- list()
+  for (ii in 1:4) {
+    for (jj in 1:4) {
+      tmp <- arima(deseason_data_frame$price, order = c(ii, 0, jj))
+      print(paste("p: ", ii, ", q: ", jj, ", aic: ", tmp$aic))
+      out[(ii - 1) * 7 + jj] <- data.frame(p = ii, q = jj, aic = tmp$aic)
+    }
+  }
 }

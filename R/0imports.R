@@ -81,6 +81,12 @@ ylab <- ggplot2::ylab
 geom_line <- ggplot2::geom_line
 #' @importFrom ggplot2 geom_segment
 geom_segment <- ggplot2::geom_segment
+#' @importFrom ggplot2 aes_string
+aes_string <- ggplot2::aes_string
+#' @importFrom ggplot2 aes
+aes <- ggplot2::aes
+#' @importFrom ggplot2 ggplotGrob
+ggplotGrob <- ggplot2::ggplotGrob
 
 # Imports from gridExtra
 

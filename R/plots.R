@@ -157,32 +157,32 @@ draw_line_plot <- function(input_frame, xlabel, ylabel, input) {
 #' @param lags An integer giving the number of lags
 #' @export
 draw_acf <- function(input_frame, lags) {
-  stats_acf <- data_frame$price %>%
+  stats_acf <- input_frame$price %>%
     acf(lag.max = 96, plot = FALSE) %>%
     with(data.frame(lag, acf))
   
-  stats_pacf <- data_frame$price %>%
+  stats_pacf <- input_frame$price %>%
     pacf(lag.max = 96, plot = FALSE) %>%
     with(data.frame(lag, acf))
   
   acf_sig_level <- qnorm((1 + 0.95) / 2) / 
-    sqrt(sum(!is.na(demean_data_frame$price)))
+    sqrt(sum(!is.na(input_frame$price)))
   
   plots <- list(
     p1 = ggplot(stats_acf, aes(x = lag, y = acf)) +
-      geom_hline(aes(yintercept = 0)) +
-      geom_hline(aes(yintercept = acf_sig_level), linetype = "dashed",
+      geom_hline(yintercept = 0) +
+      geom_hline(yintercept = acf_sig_level, linetype = "dashed",
                  color = "#003366") +
-      geom_hline(aes(yintercept = -acf_sig_level), linetype = "dashed",
+      geom_hline(yintercept = -acf_sig_level, linetype = "dashed",
                  color = "#003366") +
       geom_segment(aes(xend = lag, yend = 0)) +
       xlab("Lag number") +
       ylab("Autocorrelation"),
     p2 = ggplot(stats_pacf, aes(x = lag, y = acf)) +
-      geom_hline(aes(yintercept = 0)) +
-      geom_hline(aes(yintercept = acf_sig_level), linetype = "dashed",
+      geom_hline(yintercept = 0) +
+      geom_hline(yintercept = acf_sig_level, linetype = "dashed",
                  color = "#003366") +
-      geom_hline(aes(yintercept = -acf_sig_level), linetype = "dashed",
+      geom_hline(yintercept = -acf_sig_level, linetype = "dashed",
                  color = "#003366") +
       geom_segment(aes(xend = lag, yend = 0)) +
       xlab("Lag number") +
