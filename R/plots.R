@@ -143,7 +143,7 @@ loss_function <- function(save_path = NULL, do_print = "Yes") {
 #' Flexible function for plotting line chart of data
 #' @param input_frame A dataframe with a date object and a series to be plotted
 #' @param xlabel A string containing x-label name
-#' @param ylabel A string containing x-label name
+#' @param ylabel A string containing y-label name
 #' @export
 draw_line_plot <- function(input_frame, xlabel, ylabel, input) {
   ggplot(input_frame, aes_string(x = "date", y = input)) +
