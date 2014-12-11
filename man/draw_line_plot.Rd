@@ -3,7 +3,8 @@
 \alias{draw_line_plot}
 \title{Flexible function for plotting line chart of data}
 \usage{
-draw_line_plot(input_frame, xlabel, ylabel, input)
+draw_line_plot(input_frame, xlabel, ylabel, input, file_name = NULL,
+  save_path = NULL, do_print = TRUE)
 }
 \arguments{
 \item{input_frame}{A dataframe with a date object and a series to be plotted}

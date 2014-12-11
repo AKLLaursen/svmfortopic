@@ -8,7 +8,7 @@
 #' @param do_print A string, yes or no
 #' @export
 #' 
-max_marg_class <- function(set_seed = 1001, save_path = NULL, do_print = "Yes")
+max_marg_class <- function(set_seed = 1001, save_path = NULL, do_print = TRUE)
 {
   # Create separable points.
   set.seed(set_seed)
@@ -59,7 +59,7 @@ max_marg_class <- function(set_seed = 1001, save_path = NULL, do_print = "Yes")
                 linetype = "dashed")
   
   # Print plot
-  if (tolower(do_print) == "yes") print(p)
+  if (do_print == TRUE) print(p)
   
   # Possibly save graphs
   if (!is.null(save_path)) {
@@ -80,7 +80,7 @@ max_marg_class <- function(set_seed = 1001, save_path = NULL, do_print = "Yes")
 #' drive
 #' @param do_print A string, yes or no
 #' @export
-loss_function <- function(save_path = NULL, do_print = "Yes") {
+loss_function <- function(save_path = NULL, do_print = TRUE) {
   # Epsilon intensity loss function
   eps <- function(x, epsilon = 1.5) {
     ifelse(abs(x) < epsilon, 0, abs(x) - epsilon)
@@ -125,7 +125,7 @@ loss_function <- function(save_path = NULL, do_print = "Yes") {
   p <- arrangeGrob(plots$p1, plots$p2, ncol = 2)
   
   # Print plot
-  if (tolower(do_print) == "yes") print(p)
+  if (do_print == TRUE) print(p)
   
   # Possibly save graphs
   if (!is.null(save_path)) {
@@ -145,24 +145,44 @@ loss_function <- function(save_path = NULL, do_print = "Yes") {
 #' @param xlabel A string containing x-label name
 #' @param ylabel A string containing x-label name
 #' @export
-draw_line_plot <- function(input_frame, xlabel, ylabel, input) {
-  ggplot(input_frame, aes_string(x = "date", y = input)) +
-    geom_line(color = "#003366") +
+draw_line_plot <- function(input_frame, xlabel, ylabel, input, file_name = NULL,
+                           save_path = NULL, do_print = TRUE) {
+  p <- ggplot(input_frame, aes_string(x = "date", y = input)) +
+    geom_line(color = "#003366", size = 0.2) +
     xlab(xlabel) +
     ylab(ylabel)
+  
+  # Print plot
+  if (do_print == TRUE) print(p)
+  
+  # Possibly save graphs
+  if (!is.null(save_path) && !is.null(file_name)) {
+    ggsave(filename = file_name,
+           plot = p,
+           path = save_path,
+           scale = 1,
+           width = 21,
+           height = 21 * 0.5,
+           units = "cm",
+           dpi = 1000)
+  }
 }
 
 #' Flexible function for plotting autocorrelation functions in ggplot
 #' @param input_frame A dataframe with a date object and a series to be plotted
 #' @param lags An integer giving the number of lags
+#' @param file name A string indicating name of output
+#' @param save_path A string with path to save file
+#' @param do_print A Bolean indicating if plot should be printed
 #' @export
-draw_acf <- function(input_frame, lags) {
+draw_acf <- function(input_frame, lags, file_name = NULL, save_path = NULL,
+                     do_print = TRUE) {
   stats_acf <- input_frame$price %>%
-    acf(lag.max = 96, plot = FALSE) %>%
+    acf(lag.max = lags, plot = FALSE) %>%
     with(data.frame(lag, acf))
   
   stats_pacf <- input_frame$price %>%
-    pacf(lag.max = 96, plot = FALSE) %>%
+    pacf(lag.max = lags, plot = FALSE) %>%
     with(data.frame(lag, acf))
   
   acf_sig_level <- qnorm((1 + 0.95) / 2) / 
@@ -176,6 +196,7 @@ draw_acf <- function(input_frame, lags) {
       geom_hline(yintercept = -acf_sig_level, linetype = "dashed",
                  color = "#003366") +
       geom_segment(aes(xend = lag, yend = 0)) +
+      ylim(0, 1) +
       xlab("Lag number") +
       ylab("Autocorrelation"),
     p2 = ggplot(stats_pacf, aes(x = lag, y = acf)) +
@@ -185,25 +206,67 @@ draw_acf <- function(input_frame, lags) {
       geom_hline(yintercept = -acf_sig_level, linetype = "dashed",
                  color = "#003366") +
       geom_segment(aes(xend = lag, yend = 0)) +
+      ylim(0, 1) +
       xlab("Lag number") +
       ylab("Autocorrelation"))
   
   p <- arrangeGrob(plots$p1, plots$p2, nrow = 2)
-  print(p)
+  
+  # Print plot
+  if (do_print == TRUE) print(p)
+  
+  # Possibly save graphs
+  if (!is.null(save_path) && !is.null(file_name)) {
+    ggsave(filename = file_name,
+           plot = p,
+           path = save_path,
+           scale = 1,
+           width = 21,
+           height = 21 * 0.5,
+           units = "cm",
+           dpi = 1000)
+  }
 }
 
 #' Function plotting the periodogram for a univariate time series
 #' @param input_frame A dataframe with a series named price
+#' @param log A bolean indicating if y-axis shcould be logarithmic
+#' @param file name A string indicating name of output
+#' @param save_path A string with path to save file
+#' @param do_print A Bolean indicating if plot should be printed
 #' @export
 #' 
-draw_periodogram <- function(input_frame) {
+draw_periodogram <- function(input_frame, log = TRUE, file_name = NULL,
+                             save_path = NULL, do_print = TRUE) {
    period <- spec.pgram(input_frame$price, taper = 0, detrend = FALSE,
                         demean = FALSE, plot = TRUE) %>%
      with(data.frame(spec = spec, freq = freq))
    
-   ggplot(period, aes(x = freq, y = spec)) +
-     geom_line(color = "#003366") +
-     scale_y_log10() +
-     xlab("Frequency") +
-     ylab("Spectrum")
+   if (log) {
+     p <- ggplot(period, aes(x = freq, y = spec)) +
+       geom_line(color = "#003366") +
+       scale_y_log10() +
+       xlab("Frequency") +
+       ylab("Spectrum")
+   } else {
+     p <- ggplot(period, aes(x = freq, y = spec)) +
+       geom_line(color = "#003366") +
+       xlab("Frequency") +
+       ylab("Spectrum")
+   }
+   
+   # Print plot
+   if (do_print == TRUE) print(p)
+   
+   # Possibly save graphs
+   if (!is.null(save_path) && !is.null(file_name)) {
+     ggsave(filename = file_name,
+            plot = p,
+            path = save_path,
+            scale = 1,
+            width = 21,
+            height = 21 * 0.5,
+            units = "cm",
+            dpi = 1000)
+   }
 }

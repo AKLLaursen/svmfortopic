@@ -4,7 +4,7 @@
 \title{Function for plotting the the epsilon-intensity linear loss function and
 Huber's loss function.}
 \usage{
-loss_function(save_path = NULL, do_print = "Yes")
+loss_function(save_path = NULL, do_print = TRUE)
 }
 \arguments{
 \item{save_path}{A path string. If given, saves an .eps file to local hard

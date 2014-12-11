@@ -94,5 +94,11 @@ ggplotGrob <- ggplot2::ggplotGrob
 arrangeGrob <- gridExtra::arrangeGrob
 
 # Imports from tseries
+
 #' @importFrom tseries adf.test
 adf.test <- tseries::adf.test
+
+# Imports from stargazer
+
+#' @importFrom stargazer stargazer
+stargazer <- stargazer::stargazer

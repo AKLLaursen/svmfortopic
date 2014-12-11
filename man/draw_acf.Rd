@@ -3,12 +3,19 @@
 \alias{draw_acf}
 \title{Flexible function for plotting autocorrelation functions in ggplot}
 \usage{
-draw_acf(input_frame, lags)
+draw_acf(input_frame, lags, file_name = NULL, save_path = NULL,
+  do_print = TRUE)
 }
 \arguments{
 \item{input_frame}{A dataframe with a date object and a series to be plotted}
 
 \item{lags}{An integer giving the number of lags}
+
+\item{save_path}{A string with path to save file}
+
+\item{do_print}{A Bolean indicating if plot should be printed}
+
+\item{file}{name A string indicating name of output}
 }
 \description{
 Flexible function for plotting autocorrelation functions in ggplot

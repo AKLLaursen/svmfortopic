@@ -5,7 +5,7 @@
 http://scikit-learn.org/0.10/auto_examples/svm/plot_separating_hyperplane.htm
 l}
 \usage{
-max_marg_class(set_seed = 1001, save_path = NULL, do_print = "Yes")
+max_marg_class(set_seed = 1001, save_path = NULL, do_print = TRUE)
 }
 \arguments{
 \item{set_seed}{An integer, setting the seed. Default value matches graph in
