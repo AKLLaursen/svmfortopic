@@ -87,6 +87,8 @@ aes_string <- ggplot2::aes_string
 aes <- ggplot2::aes
 #' @importFrom ggplot2 ggplotGrob
 ggplotGrob <- ggplot2::ggplotGrob
+#' @importFrom ggplot2 ylim
+ylim <- ggplot2::ylim
 
 # Imports from gridExtra
 

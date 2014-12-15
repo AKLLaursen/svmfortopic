@@ -264,20 +264,7 @@ long_run_trend_season <- function(input_frame) {
                           tol = 1e-06,
                           printEval = TRUE)) %>%
     tidy %>%
-    use_series(estimate)
-  
-  data_frame_post_LTSC <- input_frame %>%
-    transmute(date,
-              trend = 1:n(),
-              ewma = ewma(price),
-              price = price - (trend_seas_fit[1] * 
-                                 sin(2 * pi * (trend / 365 + trend_seas_fit[2])) -
-                                 trend_seas_fit[3] + trend_seas_fit[4] * ewma),
-              trend_seas = (trend_seas_fit[1] * 
-                              sin(2 * pi * (trend / 365 + trend_seas_fit[2])) -
-                              trend_seas_fit[3] + trend_seas_fit[4] * ewma)) %>%
-    select(-trend, -ewma)
-  
+    use_series(estimate)  
 }
 
 #' Function calculating short run season
@@ -301,10 +288,7 @@ short_run_season <- function(input_frame) {
   short_seas_fit <- lm(price ~ .,
                        data = data_frame)
   
-  data_filt <- data.frame(date = input_frame$date,
-                          price = short_seas_fit$residuals)
-  
-  return(data_filt)
+  return(short_seas_fit)
 }
 
 #' Outlier filter function
@@ -394,7 +378,18 @@ pre_model_processing <- function(input_data, path_figure, path_table) {
   
   # We separate the deseason into two parts, a LR trendseasonal term and a SR
   # (weekly) seasonal term. Starting with LR
-  de_lrts_data_frame <- long_run_trend_season(demean_data_frame)
+  trend_seas_fit <- long_run_trend_season(demean_data_frame)
+  de_lrts_data_frame <- demean_data_frame %>% 
+    transmute(date,
+              trend = 1:n(),
+              ewma = ewma(price),
+              price = price - (trend_seas_fit[1] * 
+                                 sin(2 * pi * (trend / 365 + trend_seas_fit[2])) -
+                                 trend_seas_fit[3] + trend_seas_fit[4] * ewma),
+              trend_seas = (trend_seas_fit[1] * 
+                              sin(2 * pi * (trend / 365 + trend_seas_fit[2])) -
+                              trend_seas_fit[3] + trend_seas_fit[4] * ewma)) %>%
+    select(-trend, -ewma)
   
   # Plot estimated trendseas:
   draw_line_plot(de_lrts_data_frame,
@@ -414,7 +409,9 @@ pre_model_processing <- function(input_data, path_figure, path_table) {
                  save_path = path_figure,
                  do_print = TRUE)
   
-  deseason_data_frame <- short_run_season(de_lrts_data_frame)
+  short_seas_fit <- short_run_season(de_lrts_data_frame)
+  deseason_data_frame <- data.frame(date = de_lrts_data_frame$date,
+                                    price = short_seas_fit$residuals)
   
   # Plot estimated deseason:
   draw_line_plot(deseason_data_frame,
@@ -437,17 +434,17 @@ pre_model_processing <- function(input_data, path_figure, path_table) {
                  do_print = TRUE)
   
   # Plot autocorrelation
-  draw_acf(deseason_data_frame,
+  draw_acf(deseason_filtered_frame,
            lags = 72,
            file_name = "5_spot_treated_acf_pacf.eps",
            save_path = path_figure,
            do_print = TRUE)
   # Plot parellogram
-  draw_periodogram(deseason_data_frame,
+  draw_periodogram(deseason_filtered_frame,
                    log = FALSE,
                    file_name = "5_spot_treated_periodogram.eps",
                    save_path = path_figure,
                    do_print = TRUE)
   
-  return(deseason_data_frame)
+  return(deseason_filtered_frame)
 }
