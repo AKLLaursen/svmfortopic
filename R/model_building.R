@@ -38,8 +38,8 @@ oos_forecast <- function(input_frame, p = 6, q = 6, test_start = "2013-11-01") {
     ungroup
   
   forecast_frame <- input_frame %>%
-    left_join(get_holi_dum(head(input_frame$date, 1),
-                           tail(input_frame$date, 1)),
+    left_join(get_holi_dum(head(input_frame$date, 1) %>% as.character,
+                           tail(input_frame$date, 1) %>% as.character),
               by = "date") %>%
     transmute(date,
               is_holiday,
@@ -90,7 +90,7 @@ oos_forecast <- function(input_frame, p = 6, q = 6, test_start = "2013-11-01") {
     forecast <- arima_forecast +
       short_seas_fit$coefs %*% tmp_forecast_frame +
       tail()
-      
-    #See note in paper on long run seasonality
+  }
+  )
   
 }

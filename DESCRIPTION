@@ -19,5 +19,6 @@ Imports:
     ggplot2,
     e1071,
     tseries,
-    gridExtra
+    gridExtra,
+    stargazer
 License: LICENCE
