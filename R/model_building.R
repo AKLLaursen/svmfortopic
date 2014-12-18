@@ -1,8 +1,8 @@
 #' Function doing base part of study
 #' 
 #' @param input_data A data frame
-#' @param p An integer, number or AR terms
-#' @param q An integer, number of MA terms
+#' @param p An integer, number of max AR terms
+#' @param q An integer, number of max MA terms
 #' 
 #' @export
 select_arima <- function(input_frame, p = 7, q = 7) {  
@@ -19,14 +19,16 @@ select_arima <- function(input_frame, p = 7, q = 7) {
   
   out <- lapply(0:p, function(x) {
     lapply(0:q, function(y) {
-      arima(input_frame$price, order = c(x, 0, y)) %>% calc_bic(x, y)
+      arima(input_frame$price,
+            order = c(x, 0, y),
+            optim.control = list(maxit = 2000)) %>% calc_bic(x, y)
       }
       ) %>% rbind_all
   }
   ) %>% rbind_all
 }
 
-arima_desc <- function(input_frame, p = 6, q = 6, path_figure) {
+arima_desc <- function(input_frame, p = 6, q = 5, path_figure) {
   residuals_arima <- arima(test_treated_frame$price, order = c(p, 0, q)) %>%
     use_series(residuals) %>%
     data.frame(date = test_treated_frame$date,
@@ -81,7 +83,7 @@ oos_forecast <- function(input_frame, test_start = "2013-11-01", p = 6, q = 6,
   
   date_vec <- seq(test_start, tail(input_frame$date, 1), by = "day")
   
-  arima_fore_out <- lapply(date_vec, function(x) {
+  fore_out <- lapply(date_vec, function(x) {
     
     tmp_input_frame <- input_frame %>%
       filter(date < x)
@@ -103,8 +105,7 @@ oos_forecast <- function(input_frame, test_start = "2013-11-01", p = 6, q = 6,
                 ewma = ewma(price),
                 price = price - (trend_seas_fit[1] * 
                                    sin(2 * pi * (trend / 365 + trend_seas_fit[2])) -
-                                   trend_seas_fit[3] + trend_seas_fit[4] * ewma)) %>%
-      select(-trend, -ewma)
+                                   trend_seas_fit[3] + trend_seas_fit[4] * ewma))
     
     short_seas_fit <- short_run_season(de_lrts_data_frame)
     deseason_data_frame <- data.frame(date = de_lrts_data_frame$date,
@@ -118,11 +119,19 @@ oos_forecast <- function(input_frame, test_start = "2013-11-01", p = 6, q = 6,
       use_series(pred) %>%
       as.numeric
     
-    forecast <- arima_forecast +
-      tmp_forecast_frame %*% (short_seas_fit$coef %>% as.matrix) +
-      tail() + 
-      mean_data
+    forecast <- data.frame(
+      date = x,
+      forecast = arima_forecast +
+        tmp_forecast_frame %*% (short_seas_fit$coef %>% as.matrix) +
+        trend_seas_fit[1] * sin(2 * pi *
+        ((tail(de_lrts_data_frame$trend, 1) + h) / 365 + trend_seas_fit[2])) -
+        trend_seas_fit[3] + trend_seas_fit[4] * tail(de_lrts_data_frame$ewma, 1) +
+        mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975))
   }
-  )
+  ) %>%
+    rbind_all %>%
+    left_join(input_frame %>% filter(date <= test_start), ., by = "date")
+  
+  
   
 }
