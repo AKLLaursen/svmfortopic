@@ -59,12 +59,12 @@ arima_desc <- function(input_frame, p = 6, q = 5, path_figure) {
 
 #' Function doing oos forecast using a given model type over a given horison
 #' 
-oos_forecast <- function(input_frame, test_start = "2013-11-01", p = 6, q = 6,
+oos_forecast <- function(input_frame, test_start = "2013-11-01", p = 6, q = 5,
                          h = 1) {
   
   test_start %<>% as.Date
   
-  input_frame %<>% mutate(date = date %>% as.Date) %>%
+  input_frame %<>%mutate(date = date %>% as.Date) %>%
     group_by(date) %>%
     summarise(price = mean(price, na.rm = TRUE)) %>%
     ungroup
@@ -84,6 +84,8 @@ oos_forecast <- function(input_frame, test_start = "2013-11-01", p = 6, q = 6,
   date_vec <- seq(test_start, tail(input_frame$date, 1), by = "day")
   
   fore_out <- lapply(date_vec, function(x) {
+    
+    cat(paste0("Forecasting ", x, "\n"))
     
     tmp_input_frame <- input_frame %>%
       filter(date < x)
@@ -113,25 +115,55 @@ oos_forecast <- function(input_frame, test_start = "2013-11-01", p = 6, q = 6,
     
     deseason_filtered_frame <- outlier_filt(deseason_data_frame, 3)
     
-    arima_forecast <- predict(arima(deseason_filtered_frame$price,
-                                    order = c(p, 0, q)),
-                              n.ahead = h) %>%
+    arima_forecast <- arima(deseason_filtered_frame$price,
+                           order = c(p, 0, q),
+                           optim.control = list(maxit = 2000)) %>%
+      predict(n.ahead = h) %>%
       use_series(pred) %>%
       as.numeric
     
-    forecast <- data.frame(
+    svm_input <- data.frame(y = deseason_filtered_frame$price,
+                            x1 = lag(deseason_filtered_frame$price, 1),
+                            x2 = lag(deseason_filtered_frame$price, 2),
+                            x3 = lag(deseason_filtered_frame$price, 3),
+                            x4 = lag(deseason_filtered_frame$price, 4),
+                            x5 = lag(deseason_filtered_frame$price, 5),
+                            x6 = lag(deseason_filtered_frame$price, 6))
+    
+    svm_for_input <- data.frame(x1 = deseason_filtered_frame$price,
+                                x2 = lag(deseason_filtered_frame$price, 1),
+                                x3 = lag(deseason_filtered_frame$price, 2),
+                                x4 = lag(deseason_filtered_frame$price, 3),
+                                x5 = lag(deseason_filtered_frame$price, 4),
+                                x6 = lag(deseason_filtered_frame$price, 5)) %>%
+      tail(1)
+    
+    svm_forecast  <- svm(y ~ .,
+                         data = svm_input,
+                         kernel = "linear",
+                         scale = TRUE,
+                         type = "eps-regression",
+                         cost = 1,
+                         epsilon = 0.1) %>%
+      predict(newdata = svm_for_input)
+    
+    forecast_arima <- data.frame(
       date = x,
-      forecast = arima_forecast +
+      forecast_arima = (arima_forecast +
         tmp_forecast_frame %*% (short_seas_fit$coef %>% as.matrix) +
         trend_seas_fit[1] * sin(2 * pi *
         ((tail(de_lrts_data_frame$trend, 1) + h) / 365 + trend_seas_fit[2])) -
         trend_seas_fit[3] + trend_seas_fit[4] * tail(de_lrts_data_frame$ewma, 1) +
-        mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975))
+        mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975)),
+      forecast_svm = (svm_forecast +
+        tmp_forecast_frame %*% (short_seas_fit$coef %>% as.matrix) +
+        trend_seas_fit[1] * sin(2 * pi *
+        ((tail(de_lrts_data_frame$trend, 1) + h) / 365 + trend_seas_fit[2])) -
+        trend_seas_fit[3] + trend_seas_fit[4] * tail(de_lrts_data_frame$ewma, 1) +
+        mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975)))
   }
   ) %>%
     rbind_all %>%
     left_join(input_frame %>% filter(date <= test_start), ., by = "date")
-  
-  
   
 }
