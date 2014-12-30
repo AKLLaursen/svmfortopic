@@ -5,7 +5,7 @@
 #' @param q An integer, number of max MA terms
 #' 
 #' @export
-select_arima <- function(input_frame, p = 7, q = 7) {  
+select_arima <- function(input_frame, max.p = 7, max.q = 7) {  
   
   calc_bic <- function(model, p, q) {
       data.frame(p = p,
@@ -17,8 +17,8 @@ select_arima <- function(input_frame, p = 7, q = 7) {
                    log(log(length(model$residuals))))     
   }
   
-  out <- lapply(0:p, function(x) {
-    lapply(0:q, function(y) {
+  out <- lapply(0:max.p, function(x) {
+    lapply(0:max.q, function(y) {
       arima(input_frame$price,
             order = c(x, 0, y),
             optim.control = list(maxit = 2000)) %>% calc_bic(x, y)
@@ -55,6 +55,45 @@ arima_desc <- function(input_frame, p = 6, q = 5, path_figure) {
                    file_name = "6_arima(6,0,6)_periodogram.eps",
                    save_path = path_figure,
                    do_print = TRUE)
+}
+
+select_svm <- function(input_frame, max.cost = 100,
+                       max.epsilon = 10) {
+  
+  train_frame <- data.frame(y = input_frame$price,
+                            x1 = lag(input_frame$price, 1),
+                            x2 = lag(input_frame$price, 2),
+                            x3 = lag(input_frame$price, 3),
+                            x4 = lag(input_frame$price, 4),
+                            x5 = lag(input_frame$price, 5),
+                            x6 = lag(input_frame$price, 6),
+                            x7 = lag(input_frame$price, 7))
+  
+  kernel <- c("linear", "polynomial", "radial basis", "sigmoid")
+  
+  svm_out <- train_frame %>%
+    lapply(1:length(kernel), function(i) {
+      lapply(2:ncol(train_frame), function(j) {
+        lapply(1:max.cost, function(h) {
+          lapply(seq(0.1, max.epsilon, 0.1) function(k) {
+            svm(y ~ .,
+                data = train_frame[, 2:j],
+                kernel = kernel[i],
+                scale = TRUE,
+                type = "eps-regression",
+                cost = h,
+                epsilon = k) %>%
+              predict.svm(newdata = train_frame[, 2:j]) %>%
+              summarise(mse = mean((train_frame[, 1] - XXX) ** 2)) %>%>
+              data.frame(kernel = kernel[i],
+                         lags = j - 1,
+                         cost = h,
+                         epsilon = k,
+                         mse = .)
+          }) %>% rbind_all
+        }) %>% rbind_all
+      }) %>% rbind_all
+    }) %>% rbind_all
 }
 
 #' Function doing oos forecast using a given model type over a given horison
@@ -145,7 +184,7 @@ oos_forecast <- function(input_frame, test_start = "2013-11-01", p = 6, q = 5,
                          type = "eps-regression",
                          cost = 1,
                          epsilon = 0.1) %>%
-      predict(newdata = svm_for_input)
+      predict.svm(newdata = svm_for_input)
     
     forecast_arima <- data.frame(
       date = x,

@@ -323,7 +323,8 @@ outlier_filt <- function(input_frame, std_filt = 5)
 #' @param path_table A string with path to save tables
 #' 
 #' @export
-pre_model_processing <- function(input_data, path_figure, path_table) {
+pre_model_processing <- function(input_data, path_figure = NULL,
+                                 path_table = NULL) {
   
   # Take the mean across each day to find the base spot price
   data_frame <- input_data %>%
@@ -332,46 +333,54 @@ pre_model_processing <- function(input_data, path_figure, path_table) {
     ungroup
   
   # Draw line plot to get feel of data series
-  draw_line_plot(data_frame,
-                 input = "price",
-                 xlabel = "Year",
-                 ylabel = "Base spot price, EUR/MWh",
-                 file_name = "5_spot_untreated_line_plot.eps",
-                 save_path = path_figure,
-                 do_print = "Yes")
+  if (path_figure %>% is.null %>% `!`) {
+    draw_line_plot(data_frame,
+                   input = "price",
+                   xlabel = "Year",
+                   ylabel = "Base spot price, EUR/MWh",
+                   file_name = "5_spot_untreated_line_plot.eps",
+                   save_path = path_figure,
+                   do_print = "Yes")
+  }
   
   # Get unfiltered descriptive statistics
-  descriptives <- data_frame %>%
-    summarise(series = "Eex day ahead (spot)",
-              n = n(),
-              Max = max(price) %>% round(2),
-              Min = min(price) %>% round(2),
-              Median = median(price, na.rm = TRUE) %>% round(2),
-              Mean = mean(price, na.rm = TRUE) %>% round(2),
-              Sd = sd(price, na.rm = TRUE) %>% round(2)) %>%
-    stargazer(type = "latex",
-              style = "default",
-              summary = FALSE,
-              out = paste0(path_table, "/5_descriptives_spot.tex"),
-              out.header = FALSE)
+  if (path_table %>% is.null %>% `!`) {
+    descriptives <- data_frame %>%
+      summarise(series = "Eex day ahead (spot)",
+                n = n(),
+                Max = max(price) %>% round(2),
+                Min = min(price) %>% round(2),
+                Median = median(price, na.rm = TRUE) %>% round(2),
+                Mean = mean(price, na.rm = TRUE) %>% round(2),
+                Sd = sd(price, na.rm = TRUE) %>% round(2)) %>%
+      stargazer(type = "latex",
+                style = "default",
+                summary = FALSE,
+                out = paste0(path_table, "/5_descriptives_spot.tex"),
+                out.header = FALSE)
+  }
   
   demean_data_frame <- data_frame %>%
     transmute(date,
               price = price - mean(price, na.rm = TRUE))
   
   # Plot autocorrelation
-  draw_acf(demean_data_frame,
-           lags = 72,
-           file_name = "5_spot_untreated_acf_pacf.eps",
-           save_path = path_figure,
-           do_print = "Yes")
+  if (path_figure %>% is.null %>% `!`) {
+    draw_acf(demean_data_frame,
+             lags = 72,
+             file_name = "5_spot_untreated_acf_pacf.eps",
+             save_path = path_figure,
+             do_print = "Yes")
+  }
   
   # Plot parellogram
-  draw_periodogram(demean_data_frame,
-                   log = FALSE,
-                   file_name = "5_spot_untreated_periodogram.eps",
-                   save_path = path_figure,
-                   do_print = TRUE)
+  if (path_figure %>% is.null %>% `!`) {
+    draw_periodogram(demean_data_frame,
+                     log = FALSE,
+                     file_name = "5_spot_untreated_periodogram.eps",
+                     save_path = path_figure,
+                     do_print = TRUE)
+  }
   
   # Clearly we see a seasonal pattern at lag 7 and at freqency 0.14 -> period
   # 1/0.14 = 7.14. As such, we deseasonalise.
@@ -392,59 +401,72 @@ pre_model_processing <- function(input_data, path_figure, path_table) {
     select(-trend, -ewma)
   
   # Plot estimated trendseas:
-  draw_line_plot(de_lrts_data_frame,
-                 input = "trend_seas",
-                 xlabel = "Year",
-                 ylabel = "Long run seasonal trend",
-                 file_name = "5_lrts_line_plot.eps",
-                 save_path = path_figure,
-                 do_print = TRUE)
+  if (path_figure %>% is.null %>% `!`) {
+    draw_line_plot(de_lrts_data_frame,
+                   input = "trend_seas",
+                   xlabel = "Year",
+                   ylabel = "Long run seasonal trend",
+                   file_name = "5_lrts_line_plot.eps",
+                   save_path = path_figure,
+                   do_print = TRUE)
+  }
   
   # Plot detrended series
-  draw_line_plot(de_lrts_data_frame,
-                 input = "price",
-                 xlabel = "Year",
-                 ylabel = "Long run seasonal trend",
-                 file_name = "5_spot_treated_lrts_line_plot.eps",
-                 save_path = path_figure,
-                 do_print = TRUE)
+  if (path_figure %>% is.null %>% `!`) {
+    draw_line_plot(de_lrts_data_frame,
+                   input = "price",
+                   xlabel = "Year",
+                   ylabel = "Long run seasonal trend",
+                   file_name = "5_spot_treated_lrts_line_plot.eps",
+                   save_path = path_figure,
+                   do_print = TRUE)
+  }
   
   short_seas_fit <- short_run_season(de_lrts_data_frame)
   deseason_data_frame <- data.frame(date = de_lrts_data_frame$date,
                                     price = short_seas_fit$residuals)
   
   # Plot estimated deseason:
-  draw_line_plot(deseason_data_frame,
-                 input = "price",
-                 xlabel = "Year",
-                 ylabel = "Deseasonalised data",
-                 file_name = "5_spot_treated_srs_line_plot.eps",
-                 save_path = path_figure,
-                 do_print = TRUE)
+  if (path_figure %>% is.null %>% `!`) {
+    draw_line_plot(deseason_data_frame,
+                   input = "price",
+                   xlabel = "Year",
+                   ylabel = "Deseasonalised data",
+                   file_name = "5_spot_treated_srs_line_plot.eps",
+                   save_path = path_figure,
+                   do_print = TRUE)
+  }
   
   # Finally we remove outliers
   deseason_filtered_frame <- outlier_filt(deseason_data_frame, 3)
   
-  draw_line_plot(deseason_filtered_frame,
-                 input = "price",
-                 xlabel = "Year",
-                 ylabel = "Deseasonalised data",
-                 file_name = "5_spot_treated_filter_line_plot.eps",
-                 save_path = path_figure,
-                 do_print = TRUE)
-  
-  # Plot autocorrelation
-  draw_acf(deseason_filtered_frame,
-           lags = 72,
-           file_name = "5_spot_treated_acf_pacf.eps",
-           save_path = path_figure,
-           do_print = TRUE)
-  # Plot parellogram
-  draw_periodogram(deseason_filtered_frame,
-                   log = FALSE,
-                   file_name = "5_spot_treated_periodogram.eps",
+  if (path_figure %>% is.null %>% `!`) {
+    draw_line_plot(deseason_filtered_frame,
+                   input = "price",
+                   xlabel = "Year",
+                   ylabel = "Deseasonalised data",
+                   file_name = "5_spot_treated_filter_line_plot.eps",
                    save_path = path_figure,
                    do_print = TRUE)
+  }
+  
+  # Plot autocorrelation
+  if (path_figure %>% is.null %>% `!`) {
+    draw_acf(deseason_filtered_frame,
+             lags = 72,
+             file_name = "5_spot_treated_acf_pacf.eps",
+             save_path = path_figure,
+             do_print = TRUE)
+  }
+  
+  # Plot parellogram
+  if (path_figure %>% is.null %>% `!`) {
+    draw_periodogram(deseason_filtered_frame,
+                     log = FALSE,
+                     file_name = "5_spot_treated_periodogram.eps",
+                     save_path = path_figure,
+                     do_print = TRUE)
+  }
   
   return(deseason_filtered_frame)
 }

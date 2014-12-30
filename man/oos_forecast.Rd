@@ -4,7 +4,7 @@
 \alias{oos_forecast}
 \title{Function doing oos forecast using a given model type over a given horison}
 \usage{
-oos_forecast(input_frame, test_start = "2013-11-01", p = 6, q = 6,
+oos_forecast(input_frame, test_start = "2013-11-01", p = 6, q = 5,
   h = 1)
 }
 \description{

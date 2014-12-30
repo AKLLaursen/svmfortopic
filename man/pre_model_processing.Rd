@@ -6,7 +6,7 @@
 section. That is saving all plots and returning a filtered data_frame of the
 entire period.}
 \usage{
-pre_model_processing(input_data, path_figure, path_table)
+pre_model_processing(input_data, path_figure = NULL, path_table = NULL)
 }
 \arguments{
 \item{path_figure}{A string with path to save figures}
