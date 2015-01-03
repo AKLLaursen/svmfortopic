@@ -57,8 +57,24 @@ arima_desc <- function(input_frame, p = 6, q = 5, path_figure) {
                    do_print = TRUE)
 }
 
-select_svm <- function(input_frame, max.cost = 100,
-                       max.epsilon = 10) {
+#' Function basically performing the same task as e1071::tune, but here made
+#' clear.
+#' @param input_frame A data frame containing a date and a price.
+#' @param max.cost An integer containing the maximum allowed cost. If left as
+#' NULL, it will default to floor(max(abs(price)) + 3 * sd(price))
+#' @param max.epsilon An interger being the max allowed epsilon parameter. If 
+#' left as null, it will default to 4, being the value where no support vectors
+#' are returned for the base spot price for Germany.
+#' @param cachesize cache memory in MB (default 4000)
+#' 
+#' @export
+select_svm <- function(input_frame, max.cost = NULL,
+                       max.epsilon = 4, cachesize = 4000) {
+  
+  if (max.cost %>% is.null) {
+    max.cost <- (max(abs(input_frame$price)) + 3 * sd(input_frame$price)) %>%
+      floor
+  }
   
   train_frame <- data.frame(y = input_frame$price,
                             x1 = lag(input_frame$price, 1),
@@ -67,24 +83,33 @@ select_svm <- function(input_frame, max.cost = 100,
                             x4 = lag(input_frame$price, 4),
                             x5 = lag(input_frame$price, 5),
                             x6 = lag(input_frame$price, 6),
-                            x7 = lag(input_frame$price, 7))
+                            x7 = lag(input_frame$price, 7)) %>%
+    na.omit
   
-  kernel <- c("linear", "polynomial", "radial basis", "sigmoid")
+  kernel <- c("linear", "polynomial", "radial", "sigmoid")
   
-  svm_out <- train_frame %>%
+  svm_out <- 
     lapply(1:length(kernel), function(i) {
       lapply(2:ncol(train_frame), function(j) {
         lapply(1:max.cost, function(h) {
-          lapply(seq(0.1, max.epsilon, 0.1) function(k) {
-            svm(y ~ .,
-                data = train_frame[, 2:j],
+          lapply(seq(0.1, max.epsilon, 0.1), function(k) {
+            try(svm(y ~ .,
+                data = train_frame[, 1:j],
                 kernel = kernel[i],
                 scale = TRUE,
                 type = "eps-regression",
                 cost = h,
-                epsilon = k) %>%
-              predict.svm(newdata = train_frame[, 2:j]) %>%
-              summarise(mse = mean((train_frame[, 1] - XXX) ** 2)) %>%>
+                epsilon = k,
+                cachesize = cachesize)) %>%
+              {
+              if (inherits(., "try-error") %>% `!`) {
+                . %>%
+                fitted %>%
+                as.numeric %>%
+                subtract(train_frame[, 1], .) %>%
+                raise_to_power(2) %>%
+                mean} else NA
+              } %>%
               data.frame(kernel = kernel[i],
                          lags = j - 1,
                          cost = h,
