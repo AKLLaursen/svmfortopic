@@ -57,6 +57,29 @@ arima_desc <- function(input_frame, p = 6, q = 5, path_figure) {
                    do_print = TRUE)
 }
 
+#' @export
+select_garch <- function(input_frame, max.p = 7, max.q = 7) {
+  out <- lapply(1:max.p, function(p) {
+    lapply(1:max.q, function(q) {
+      cat(paste0("Estimating garch model with p ", p, " and q ", q, "\n"))
+      model <- ugarchspec(
+        variance.model = list(model = "sGARCH",
+                              garchOrder = c(p, q)),
+        mean.model = list(armaOrder = c(6, 5)),
+        distribution = "norm")
+      ugarchfit(spec = model,
+                data = input_frame$price) %>%
+        infocriteria %>% 
+        as.data.frame %>%
+        add_rownames %>% 
+        transmute(info_crit = rowname,
+                  value = V1,
+                  p = p,
+                  q = q)      
+    }) %>% rbind_all
+  }) %>% rbind_all
+}
+
 #' Function basically performing the same task as e1071::tune, but here made
 #' clear.
 #' @param input_frame A data frame containing a date and a price.
@@ -70,7 +93,7 @@ arima_desc <- function(input_frame, p = 6, q = 5, path_figure) {
 #' @export
 select_svm <- function(input_frame, kernel = "linear", max.cost = NULL,
                        min.cost = NULL, gamma = NULL, coef0 = NULL,
-                       max.polynomial = 5, max.epsilon = 1, min.epsilon = 0,
+                       max.polynomial = 3, max.epsilon = 1, min.epsilon = 0.1,
                        cachesize = 8000) {
   
   if (max.cost %>% is.null) {
@@ -97,8 +120,8 @@ select_svm <- function(input_frame, kernel = "linear", max.cost = NULL,
     svm_out <- 
       lapply(2:ncol(train_frame), function(j) {
         out <- 
-          lapply(min.cost:max.cost, function(h) {
-            lapply(seq(min.epsilon, max.epsilon, 0.1), function(k) {
+          lapply(seq(min.cost, max.cost, 2), function(h) {
+            lapply(seq(min.epsilon, max.epsilon, 0.2), function(k) {
               cat(paste0("Calculating svm regression with linear kernel, ", j - 1,
                          " lags, ", h, " cost, and ", k, " epsilon"))
               
@@ -145,63 +168,62 @@ select_svm <- function(input_frame, kernel = "linear", max.cost = NULL,
       
       svm_out <- 
         lapply(2:ncol(train_frame), function(j) {
-          out <- 
-            lapply(2:max.polynomial, function(i) {
-              lapply(min.cost:max.cost, function(h) {
-                lapply(seq(min.epsilon, max.epsilon, 0.1), function(k) {
-                  cat(paste0("Calculating svm regression with polynomial kernel ",
-                             "of degree, ", i, " with ", j - 1, " lags, ", h,
-                             " cost, and ", k, " epsilon"))
-                  
-                  out <- try(svm(y ~ .,
-                                 data = train_frame[, 1:j],
-                                 kernel = kernel,
-                                 scale = TRUE,
-                                 type = "eps-regression",
-                                 cost = h,
-                                 epsilon = k,
-                                 gamma = gamma,
-                                 coef0 = coef0,
-                                 degree = i,
-                                 cachesize = cachesize)) %>%
-                    {
-                      if (inherits(., "try-error") %>% `!`) {
-                        data.frame(mse = fitted(.) %>%
-                                     as.numeric %>%
-                                     subtract(train_frame[, 1], .) %>%
-                                     raise_to_power(2) %>%
-                                     mean,
-                                   support_vectors = use_series(., SV) %>%
-                                     length)
-                        } else {
-                          data.frame(mse = NA,
-                                     support_vectors = NA)
-                        }
-                      } %>%
-                    transmute(kernel = kernel,
-                              lags = j - 1,
-                              cost = h,
-                              epsilon = k,
-                              degree = i,
-                              mse,
-                              support_vectors)
-                  
-                  cat(" ... Done\n")
-                  return(out)
-                  }) %>% rbind_all
+          out <- lapply(2:max.polynomial, function(i) {
+            lapply(seq(min.cost, max.cost, 2), function(h) {
+              lapply(seq(min.epsilon, max.epsilon, 0.2), function(k) {
+                cat(paste0("Calculating svm regression with polynomial kernel ",
+                           "of degree, ", i, " with ", j - 1, " lags, ", h,
+                           " cost, and ", k, " epsilon"))
+                
+                out <- try(svm(y ~ .,
+                               data = train_frame[, 1:j],
+                               kernel = kernel,
+                               scale = TRUE,
+                               type = "eps-regression",
+                               cost = h,
+                               epsilon = k,
+                               gamma = gamma,
+                               coef0 = coef0,
+                               degree = i,
+                               cachesize = cachesize)) %>%
+                  {
+                    if (inherits(., "try-error") %>% `!`) {
+                      data.frame(mse = fitted(.) %>%
+                                   as.numeric %>%
+                                   subtract(train_frame[, 1], .) %>%
+                                   raise_to_power(2) %>%
+                                   mean,
+                                 support_vectors = use_series(., SV) %>%
+                                   length)
+                      } else {
+                        data.frame(mse = NA,
+                                   support_vectors = NA)
+                      }
+                    } %>%
+                  transmute(kernel = kernel,
+                            lags = j - 1,
+                            cost = h,
+                            epsilon = k,
+                            degree = i,
+                            mse,
+                            support_vectors)
+                
+                cat(" ... Done\n")
+                return(out)
                 }) %>% rbind_all
               }) %>% rbind_all
-            write.csv(out, paste0("C:/Users/akl/Dropbox/Economics/Final_Thesis/Topic/SVM Outputs/SVM_Polynomial_lag_",
-                                  j - 1, ".csv"), sep = ";")
-            return(out)
+            }) %>% rbind_all
+          write.csv(out, paste0("C:/Users/akl/Dropbox/Economics/Final_Thesis/Topic/SVM Outputs/SVM_Polynomial_lag_",
+                                  j-1, ".csv"))
+          return(out)
           }) %>% rbind_all
       } else if (kernel == "radial") {
         svm_out <-
           lapply(2:ncol(train_frame), function(j) {
             out <- 
-              lapply(seq(0.1, 1, 0.1), function(i) {
-                lapply(min.cost:max.cost, function(h) {
-                  lapply(seq(min.epsilon, max.epsilon, 0.1), function(k) {
+              lapply(seq(0.1, 1, 0.2), function(i) {
+                lapply(seq(min.cost, max.cost, 2), function(h) {
+                  lapply(seq(min.epsilon, max.epsilon, 0.2), function(k) {
                     cat(paste0("Calculating svm regression with radial basis ker",
                                "nel with ", j - 1, " lags, ", i, " gamma, ", h,
                                " cost, and ", k, " epsilon"))
@@ -243,19 +265,19 @@ select_svm <- function(input_frame, kernel = "linear", max.cost = NULL,
                   }) %>% rbind_all
                 }) %>% rbind_all
               write.csv(out, paste0("C:/Users/akl/Dropbox/Economics/Final_Thesis/Topic/SVM Outputs/SVM_Radial_lag_",
-                                    j - 1, ".csv"), sep = ";")
+                                    j - 1, ".csv"))
               return(out)
             }) %>% rbind_all
         } else if (kernel == "sigmoid") {
     svm_out <- 
       lapply(2:ncol(train_frame), function(j) {
         out <- 
-          lapply(1:10, function(t) {
-            lapply(seq(0.1, 1, 0.1), function(i) {
-              lapply(min.cost:max.cost, function(h) {
-                lapply(seq(min.epsilon, max.epsilon, 0.1), function(k) {
-                  cat(paste0("Calculating svm regression with sigmoid basis ker",
-                             "nel with ", j - 1, " lags, ", t, " coef0, ", i,
+          lapply(seq(-1, -10, -2), function(t) {
+            lapply(seq(0.1, 1, 0.2), function(i) {
+              lapply(seq(min.cost, max.cost, 2), function(h) {
+                lapply(seq(min.epsilon, max.epsilon, 0.2), function(k) {
+                  cat(paste0("Calculating svm regression with sigmoid kernel w",
+                             "ith ", j - 1, " lags, ", t, " coef0, ", i,
                              " gamma, ", h, " cost, and ", k, " epsilon"))
                   
                   out <- try(svm(y ~ .,
@@ -287,6 +309,7 @@ select_svm <- function(input_frame, kernel = "linear", max.cost = NULL,
                               cost = h,
                               epsilon = k,
                               gamma = i,
+                              coef0 = t,
                               mse,
                               support_vectors)
                   
@@ -297,20 +320,19 @@ select_svm <- function(input_frame, kernel = "linear", max.cost = NULL,
               }) %>% rbind_all
             }) %>% rbind_all
           write.csv(out, paste0("C:/Users/akl/Dropbox/Economics/Final_Thesis/Topic/SVM Outputs/SVM_Sigmoid_lag_",
-                                j - 1, ".csv"), sep = ";")
+                                j - 1, ".csv"))
           return(out)
         }) %>% rbind_all
       }
 }
 
 #' Function doing oos forecast using a given model type over a given horison
-#' 
-oos_forecast <- function(input_frame, test_start = "2013-11-01", p = 6, q = 5,
-                         h = 1) {
+#' @export
+oos_forecast <- function(input_frame, test_start = "2013-11-01", h = 1) {
   
   test_start %<>% as.Date
   
-  input_frame %<>%mutate(date = date %>% as.Date) %>%
+  input_frame %<>% mutate(date = date %>% as.Date) %>%
     group_by(date) %>%
     summarise(price = mean(price, na.rm = TRUE)) %>%
     ungroup
@@ -362,10 +384,22 @@ oos_forecast <- function(input_frame, test_start = "2013-11-01", p = 6, q = 5,
     deseason_filtered_frame <- outlier_filt(deseason_data_frame, 3)
     
     arima_forecast <- arima(deseason_filtered_frame$price,
-                            order = c(p, 0, q),
+                            order = c(6, 0, 5),
                             optim.control = list(maxit = 2000)) %>%
       predict(n.ahead = h) %>%
       use_series(pred) %>%
+      as.numeric
+    
+    garch_forecast <- 
+      ugarchspec(variance.model = list(model = "sGARCH",
+                                       garchOrder = c(2, 6)),
+                 mean.model = list(armaOrder = c(6, 5)),
+                 distribution = "norm") %>%
+      ugarchfit(spec = .,
+                data = deseason_filtered_frame$price) %>%
+      ugarchforecast(fitORspec = .,
+                     n.ahead = h) %>%
+      fitted %>%
       as.numeric
     
     svm_input <- data.frame(y = deseason_filtered_frame$price,
@@ -374,24 +408,54 @@ oos_forecast <- function(input_frame, test_start = "2013-11-01", p = 6, q = 5,
                             x3 = lag(deseason_filtered_frame$price, 3),
                             x4 = lag(deseason_filtered_frame$price, 4),
                             x5 = lag(deseason_filtered_frame$price, 5),
-                            x6 = lag(deseason_filtered_frame$price, 6))
+                            x6 = lag(deseason_filtered_frame$price, 6),
+                            x7 = lag(deseason_filtered_frame$price, 7))
     
     svm_for_input <- data.frame(x1 = deseason_filtered_frame$price,
                                 x2 = lag(deseason_filtered_frame$price, 1),
                                 x3 = lag(deseason_filtered_frame$price, 2),
                                 x4 = lag(deseason_filtered_frame$price, 3),
                                 x5 = lag(deseason_filtered_frame$price, 4),
-                                x6 = lag(deseason_filtered_frame$price, 5)) %>%
+                                x6 = lag(deseason_filtered_frame$price, 5),
+                                x7 = lag(deseason_filtered_frame$price, 6)) %>%
       tail(1)
     
-    svm_forecast  <- svm(y ~ .,
-                         data = svm_input,
-                         kernel = "linear",
-                         scale = TRUE,
-                         type = "eps-regression",
-                         cost = 1,
-                         epsilon = 0.1) %>%
-      predict.svm(newdata = svm_for_input)
+    svm_linear_forecast  <- svm(y ~ .,
+                                data = svm_input,
+                                kernel = "linear",
+                                scale = TRUE,
+                                type = "eps-regression",
+                                cost = 1,
+                                epsilon = 0.1) %>%
+      predict(newdata = svm_for_input) %>%
+      as.numeric
+    
+#     svm_polynomial_forecast  <- svm(y ~ .,
+#                                     data = svm_input,
+#                                     kernel = "polynomial",
+#                                     scale = TRUE,
+#                                     type = "eps-regression",
+#                                     cost = 1,
+#                                     epsilon = 0.1) %>%
+#       predict(newdata = svm_for_input)
+#     
+#     svm_radial_forecast  <- svm(y ~ .,
+#                                 data = svm_input,
+#                                 kernel = "radial",
+#                                 scale = TRUE,
+#                                 type = "eps-regression",
+#                                 cost = 44,
+#                                 epsilon = 0) %>%
+#       predict(newdata = svm_for_input)
+#     
+#     svm_sigmoid_forecast  <- svm(y ~ .,
+#                                  data = svm_input,
+#                                  kernel = "sigmoid",
+#                                  scale = TRUE,
+#                                  type = "eps-regression",
+#                                  cost = 1,
+#                                  epsilon = 0.1) %>%
+#       predict(newdata = svm_for_input)
     
     forecast_arima <- data.frame(
       date = x,
@@ -401,12 +465,36 @@ oos_forecast <- function(input_frame, test_start = "2013-11-01", p = 6, q = 5,
                                                     ((tail(de_lrts_data_frame$trend, 1) + h) / 365 + trend_seas_fit[2])) -
                           trend_seas_fit[3] + trend_seas_fit[4] * tail(de_lrts_data_frame$ewma, 1) +
                           mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975)),
-      forecast_svm = (svm_forecast +
-                        tmp_forecast_frame %*% (short_seas_fit$coef %>% as.matrix) +
-                        trend_seas_fit[1] * sin(2 * pi *
-                                                  ((tail(de_lrts_data_frame$trend, 1) + h) / 365 + trend_seas_fit[2])) -
-                        trend_seas_fit[3] + trend_seas_fit[4] * tail(de_lrts_data_frame$ewma, 1) +
-                        mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975)))
+      forecast_garch = (garch_forecast +
+                          tmp_forecast_frame %*% (short_seas_fit$coef %>% as.matrix) +
+                          trend_seas_fit[1] * sin(2 * pi *
+                                                    ((tail(de_lrts_data_frame$trend, 1) + h) / 365 + trend_seas_fit[2])) -
+                          trend_seas_fit[3] + trend_seas_fit[4] * tail(de_lrts_data_frame$ewma, 1) +
+                          mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975)),
+      forecast_linear_svm = (svm_linear_forecast +
+                               tmp_forecast_frame %*% (short_seas_fit$coef %>% as.matrix) +
+                               trend_seas_fit[1] * sin(2 * pi *
+                                                         ((tail(de_lrts_data_frame$trend, 1) + h) / 365 + trend_seas_fit[2])) -
+                               trend_seas_fit[3] + trend_seas_fit[4] * tail(de_lrts_data_frame$ewma, 1) +
+                               mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975)))#,
+#       forecast_polynomial_svm = (svm_linear_polynomial +
+#                                    tmp_forecast_frame %*% (short_seas_fit$coef %>% as.matrix) +
+#                                    trend_seas_fit[1] * sin(2 * pi *
+#                                                              ((tail(de_lrts_data_frame$trend, 1) + h) / 365 + trend_seas_fit[2])) -
+#                                    trend_seas_fit[3] + trend_seas_fit[4] * tail(de_lrts_data_frame$ewma, 1) +
+#                                    mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975)),
+#       forecast_radial_svm = (svm_radial_forecast +
+#                                tmp_forecast_frame %*% (short_seas_fit$coef %>% as.matrix) +
+#                                trend_seas_fit[1] * sin(2 * pi *
+#                                                          ((tail(de_lrts_data_frame$trend, 1) + h) / 365 + trend_seas_fit[2])) -
+#                                trend_seas_fit[3] + trend_seas_fit[4] * tail(de_lrts_data_frame$ewma, 1) +
+#                                mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975)),
+#       forecast_sigmoid_svm = (svm_sigmoid_forecast +
+#                                 tmp_forecast_frame %*% (short_seas_fit$coef %>% as.matrix) +
+#                                 trend_seas_fit[1] * sin(2 * pi *
+#                                                           ((tail(de_lrts_data_frame$trend, 1) + h) / 365 + trend_seas_fit[2])) -
+#                                 trend_seas_fit[3] + trend_seas_fit[4] * tail(de_lrts_data_frame$ewma, 1) +
+#                                 mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975)))
   }
   ) %>%
     rbind_all %>%

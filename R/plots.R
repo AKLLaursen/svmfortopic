@@ -175,13 +175,13 @@ draw_line_plot <- function(input_frame, xlabel, ylabel, input, file_name = NULL,
 #' @param save_path A string with path to save file
 #' @param do_print A Bolean indicating if plot should be printed
 #' @export
-draw_acf <- function(input_frame, lags, file_name = NULL, save_path = NULL,
+draw_acf <- function(input_frame, lags, input, file_name = NULL, save_path = NULL,
                      do_print = TRUE) {
-  stats_acf <- input_frame$price %>%
+  stats_acf <- input_frame %>% use_series(input) %>%
     acf(lag.max = lags, plot = FALSE) %>%
     with(data.frame(lag, acf))
   
-  stats_pacf <- input_frame$price %>%
+  stats_pacf <- input_frame %>% use_series(input) %>%
     pacf(lag.max = lags, plot = FALSE) %>%
     with(data.frame(lag, acf))
   
@@ -236,10 +236,13 @@ draw_acf <- function(input_frame, lags, file_name = NULL, save_path = NULL,
 #' @param do_print A Bolean indicating if plot should be printed
 #' @export
 #' 
-draw_periodogram <- function(input_frame, log = TRUE, file_name = NULL,
+draw_periodogram <- function(input_frame, input, log = TRUE, file_name = NULL,
                              save_path = NULL, do_print = TRUE) {
-   period <- spec.pgram(input_frame$price, taper = 0, detrend = FALSE,
-                        demean = FALSE, plot = TRUE) %>%
+   period <- spec.pgram(input_frame %>% use_series(input),
+                        taper = 0,
+                        detrend = FALSE,
+                        demean = FALSE,
+                        plot = TRUE) %>%
      with(data.frame(spec = spec, freq = freq))
    
    if (log) {

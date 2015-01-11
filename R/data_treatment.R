@@ -137,15 +137,15 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
 }
 
 #' Function replacing missing values (NA) using linear interpolation between
-#' closest finite observations. If starting points are missing, they are
-#' replaced by the closets observation possible.
+#' closest finite observations. If start/end point is missing, they are
+#' replaced by a mean of the 2 the closets observations possible.
 #'
 #' @param input_data An atomic vector containing data to be fixed.
 #' @return An atomic vector filtered for missing values.
 na_filter <- function(input_data) {
   cat("Replacing missing values\n")
   
-  .idx <- which(is.na(input_data))
+  .idx <- which(is.na(input_data) == TRUE)
   
   if (length(.idx) > 0) {
     for (ii in 1:length(.idx)) {
@@ -155,8 +155,12 @@ na_filter <- function(input_data) {
           break
         }
       }
-      if (is.null(.idx[ii - 1]) == TRUE) {
-        input_data[.idx[ii]] <- input_data[.idx[ii] + .bp]
+      if (length(input_data[.idx[ii] - 1]) == 0) {
+        input_data[.idx[ii]] <- mean(input_data[(.idx[ii] + .bp):(.idx[ii] +
+                                                                    .bp + 1)])
+      } else if (.idx[ii] + 1 > length(input_data)) {
+        input_data[.idx[ii]] <- mean(input_data[(.idx[ii] - 2):(.idx[ii] - 1)])
+        cat(paste0("Replaced ", ii, "\n"))
       } else {
         input_data[.idx[ii]] <- input_data[.idx[ii] - 1] +
           (input_data[.idx[ii] + .bp] - input_data[.idx[ii] - 1]) / (.bp + 1)
@@ -296,7 +300,7 @@ short_run_season <- function(input_frame) {
 #' @param data_input A data frame containing a price to be outlier filtered.
 #' @param std_filt Number of standard deviations to filter on.
 #' @export
-outlier_filt <- function(input_frame, std_filt = 5)
+outlier_filt <- function(input_frame, std_filt = 3)
 {
   cat("Filtering Outliers\n")
   cat(paste0("Outliers outside of ", std_filt, " being replaced by NA"))
@@ -323,7 +327,7 @@ outlier_filt <- function(input_frame, std_filt = 5)
 #' @param path_table A string with path to save tables
 #' 
 #' @export
-pre_model_processing <- function(input_data, path_figure = NULL,
+pre_model_processing_spot <- function(input_data, path_figure = NULL,
                                  path_table = NULL) {
   
   # Take the mean across each day to find the base spot price
@@ -368,6 +372,7 @@ pre_model_processing <- function(input_data, path_figure = NULL,
   if (path_figure %>% is.null %>% `!`) {
     draw_acf(demean_data_frame,
              lags = 72,
+             input = "price",
              file_name = "5_spot_untreated_acf_pacf.eps",
              save_path = path_figure,
              do_print = "Yes")
@@ -377,6 +382,7 @@ pre_model_processing <- function(input_data, path_figure = NULL,
   if (path_figure %>% is.null %>% `!`) {
     draw_periodogram(demean_data_frame,
                      log = FALSE,
+                     input = "price",
                      file_name = "5_spot_untreated_periodogram.eps",
                      save_path = path_figure,
                      do_print = TRUE)
@@ -454,6 +460,7 @@ pre_model_processing <- function(input_data, path_figure = NULL,
   if (path_figure %>% is.null %>% `!`) {
     draw_acf(deseason_filtered_frame,
              lags = 72,
+             input = "price",
              file_name = "5_spot_treated_acf_pacf.eps",
              save_path = path_figure,
              do_print = TRUE)
@@ -463,6 +470,7 @@ pre_model_processing <- function(input_data, path_figure = NULL,
   if (path_figure %>% is.null %>% `!`) {
     draw_periodogram(deseason_filtered_frame,
                      log = FALSE,
+                     input = "price",
                      file_name = "5_spot_treated_periodogram.eps",
                      save_path = path_figure,
                      do_print = TRUE)
@@ -470,3 +478,46 @@ pre_model_processing <- function(input_data, path_figure = NULL,
   
   return(deseason_filtered_frame)
 }
+
+#' @export
+pre_model_processing_intraday <- function(input_data, path_figure = NULL,
+                                      path_table = NULL) {
+  # Take the mean across each day to find the base spread
+  data_frame <- input_data %>%
+    group_by(date) %>%
+    summarise(spread = mean(spread, na.rm = TRUE)) %>%
+    ungroup
+  
+  # Draw line plot to get feel of data series
+  if (path_figure %>% is.null %>% `!`) {
+    draw_line_plot(data_frame,
+                   input = "spread",
+                   xlabel = "Year",
+                   ylabel = "Base spread price, EUR/MWh",
+                   file_name = "5_spread_untreated_line_plot.eps",
+                   save_path = path_figure,
+                   do_print = "Yes")
+  }
+  
+  
+  demean_data_frame <- data_frame %>%
+    transmute(date,
+              price = price - mean(price, na.rm = TRUE))
+  
+  # Plot autocorrelation
+  if (path_figure %>% is.null %>% `!`) {
+    draw_acf(demean_data_frame,
+             lags = 72,
+             file_name = "5_spread_untreated_acf_pacf.eps",
+             save_path = path_figure,
+             do_print = "Yes")
+  }
+  
+  # Plot parellogram
+  if (path_figure %>% is.null %>% `!`) {
+    draw_periodogram(demean_data_frame,
+                     log = FALSE,
+                     file_name = "5_spread_untreated_periodogram.eps",
+                     save_path = path_figure,
+                     do_print = TRUE)
+  }}

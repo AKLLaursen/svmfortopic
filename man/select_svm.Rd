@@ -6,8 +6,8 @@
 clear.}
 \usage{
 select_svm(input_frame, kernel = "linear", max.cost = NULL,
-  min.cost = NULL, gamma = NULL, coef0 = NULL, max.polynomial = 5,
-  max.epsilon = 1, min.epsilon = 0, cachesize = 8000)
+  min.cost = NULL, gamma = NULL, coef0 = NULL, max.polynomial = 3,
+  max.epsilon = 1, min.epsilon = 0.1, cachesize = 8000)
 }
 \arguments{
 \item{input_frame}{A data frame containing a date and a price.}
