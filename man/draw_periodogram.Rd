@@ -4,7 +4,7 @@
 \alias{draw_periodogram}
 \title{Function plotting the periodogram for a univariate time series}
 \usage{
-draw_periodogram(input_frame, log = TRUE, file_name = NULL,
+draw_periodogram(input_frame, input, log = TRUE, file_name = NULL,
   save_path = NULL, do_print = TRUE)
 }
 \arguments{

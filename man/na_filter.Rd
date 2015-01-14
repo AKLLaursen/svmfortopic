@@ -3,8 +3,8 @@
 \name{na_filter}
 \alias{na_filter}
 \title{Function replacing missing values (NA) using linear interpolation between
-closest finite observations. If starting points are missing, they are
-replaced by the closets observation possible.}
+closest finite observations. If start/end point is missing, they are
+replaced by a mean of the 2 the closets observations possible.}
 \usage{
 na_filter(input_data)
 }
@@ -16,7 +16,7 @@ An atomic vector filtered for missing values.
 }
 \description{
 Function replacing missing values (NA) using linear interpolation between
-closest finite observations. If starting points are missing, they are
-replaced by the closets observation possible.
+closest finite observations. If start/end point is missing, they are
+replaced by a mean of the 2 the closets observations possible.
 }
 

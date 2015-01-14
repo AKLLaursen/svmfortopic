@@ -425,8 +425,8 @@ oos_forecast <- function(input_frame, test_start = "2013-11-01", h = 1) {
                                 kernel = "linear",
                                 scale = TRUE,
                                 type = "eps-regression",
-                                cost = 1,
-                                epsilon = 0.1) %>%
+                                cost = 34,
+                                epsilon = 0.6) %>%
       predict(newdata = svm_for_input) %>%
       as.numeric
     
@@ -438,24 +438,26 @@ oos_forecast <- function(input_frame, test_start = "2013-11-01", h = 1) {
 #                                     cost = 1,
 #                                     epsilon = 0.1) %>%
 #       predict(newdata = svm_for_input)
-#     
-#     svm_radial_forecast  <- svm(y ~ .,
-#                                 data = svm_input,
-#                                 kernel = "radial",
-#                                 scale = TRUE,
-#                                 type = "eps-regression",
-#                                 cost = 44,
-#                                 epsilon = 0) %>%
-#       predict(newdata = svm_for_input)
-#     
-#     svm_sigmoid_forecast  <- svm(y ~ .,
-#                                  data = svm_input,
-#                                  kernel = "sigmoid",
-#                                  scale = TRUE,
-#                                  type = "eps-regression",
-#                                  cost = 1,
-#                                  epsilon = 0.1) %>%
-#       predict(newdata = svm_for_input)
+    
+    svm_radial_forecast  <- svm(y ~ .,
+                                data = svm_input[, 1:2],
+                                kernel = "radial",
+                                scale = TRUE,
+                                type = "eps-regression",
+                                cost = 42,
+                                epsilon = 0.4,
+                                gamma = 0.1) %>%
+      predict(newdata = svm_for_input)
+    
+    svm_sigmoid_forecast  <- svm(y ~ .,
+                                 data = svm_input,
+                                 kernel = "sigmoid",
+                                 scale = TRUE,
+                                 type = "eps-regression",
+                                 cost = 44,
+                                 epsilon = 0.3,
+                                 gamma = 0.1) %>%
+      predict(newdata = svm_for_input)
     
     forecast_arima <- data.frame(
       date = x,
@@ -476,28 +478,136 @@ oos_forecast <- function(input_frame, test_start = "2013-11-01", h = 1) {
                                trend_seas_fit[1] * sin(2 * pi *
                                                          ((tail(de_lrts_data_frame$trend, 1) + h) / 365 + trend_seas_fit[2])) -
                                trend_seas_fit[3] + trend_seas_fit[4] * tail(de_lrts_data_frame$ewma, 1) +
-                               mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975)))#,
+                               mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975)),
 #       forecast_polynomial_svm = (svm_linear_polynomial +
 #                                    tmp_forecast_frame %*% (short_seas_fit$coef %>% as.matrix) +
 #                                    trend_seas_fit[1] * sin(2 * pi *
 #                                                              ((tail(de_lrts_data_frame$trend, 1) + h) / 365 + trend_seas_fit[2])) -
 #                                    trend_seas_fit[3] + trend_seas_fit[4] * tail(de_lrts_data_frame$ewma, 1) +
 #                                    mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975)),
-#       forecast_radial_svm = (svm_radial_forecast +
-#                                tmp_forecast_frame %*% (short_seas_fit$coef %>% as.matrix) +
-#                                trend_seas_fit[1] * sin(2 * pi *
-#                                                          ((tail(de_lrts_data_frame$trend, 1) + h) / 365 + trend_seas_fit[2])) -
-#                                trend_seas_fit[3] + trend_seas_fit[4] * tail(de_lrts_data_frame$ewma, 1) +
-#                                mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975)),
-#       forecast_sigmoid_svm = (svm_sigmoid_forecast +
-#                                 tmp_forecast_frame %*% (short_seas_fit$coef %>% as.matrix) +
-#                                 trend_seas_fit[1] * sin(2 * pi *
-#                                                           ((tail(de_lrts_data_frame$trend, 1) + h) / 365 + trend_seas_fit[2])) -
-#                                 trend_seas_fit[3] + trend_seas_fit[4] * tail(de_lrts_data_frame$ewma, 1) +
-#                                 mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975)))
+      forecast_radial_svm = (svm_radial_forecast +
+                               tmp_forecast_frame %*% (short_seas_fit$coef %>% as.matrix) +
+                               trend_seas_fit[1] * sin(2 * pi *
+                                                         ((tail(de_lrts_data_frame$trend, 1) + h) / 365 + trend_seas_fit[2])) -
+                               trend_seas_fit[3] + trend_seas_fit[4] * tail(de_lrts_data_frame$ewma, 1) +
+                               mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975)),
+      forecast_sigmoid_svm = (svm_sigmoid_forecast +
+                                tmp_forecast_frame %*% (short_seas_fit$coef %>% as.matrix) +
+                                trend_seas_fit[1] * sin(2 * pi *
+                                                          ((tail(de_lrts_data_frame$trend, 1) + h) / 365 + trend_seas_fit[2])) -
+                                trend_seas_fit[3] + trend_seas_fit[4] * tail(de_lrts_data_frame$ewma, 1) +
+                                mean_data) / (1 - trend_seas_fit[4] * (1 - 0.975)))
   }
   ) %>%
     rbind_all %>%
-    left_join(input_frame %>% filter(date <= test_start), ., by = "date")
+    left_join(input_frame %>% filter(date >= test_start), ., by = "date")
   
+}
+
+#' @export
+select_binary_eco <- function(input_frame, method = "logit") {
+  calc_bic <- function(model, lag) {
+    data.frame(lag = lag,
+               aic = -2 * logLik(model) + 2 * length(model$coefficients),
+               bic = -2 * logLik(model) + length(model$coefficients) *
+                 log(length(model$fitted.values)),
+               hic = -2 * logLik(model) + 2 * length(model$coefficients) *
+                 log(log(length(model$fitted.values))))     
+  }
+  
+  train_frame <- data.frame(y = input_frame$direction,
+                            x1 = lag(input_frame$spread, 1),
+                            x2 = lag(input_frame$spread, 2),
+                            x3 = lag(input_frame$spread, 3),
+                            x4 = lag(input_frame$spread, 4),
+                            x5 = lag(input_frame$spread, 5),
+                            x6 = lag(input_frame$spread, 6),
+                            x7 = lag(input_frame$spread, 7)) %>%
+    na.omit
+  
+  lapply(2:8, function(i) {
+    glm(y ~ .,
+        data = train_frame[, 1:i],
+        family = binomial(method)) %>%
+      calc_bic(lag = i)
+  }) %>% rbind_all
+}
+
+#' @export
+oos_classification <- function(input_frame, test_start = "2013-11-01",
+                               lags = 5) {
+  
+  test_start %<>% as.Date
+  
+  data_frame <- input_frame %>%
+    group_by(date) %>%
+    summarise(spread = mean(spread, na.rm = TRUE)) %>%
+    ungroup
+  
+  date_vec <- seq(test_start, tail(data_frame$date, 1), by = "day")
+  
+  fore_out <- lapply(date_vec, function(x) {
+    cat(paste0("Forecasting ", x, "\n"))
+    
+    tmp_input_frame <- data_frame %>%
+      filter(date < x) %>%
+      transmute(date,
+                price = spread) %>%
+      outlier_filt(3) %>%
+      transmute(date,
+                direction = ifelse(price > 0, 1, 0) %>% as.factor,
+                spread = price)
+    
+    train_frame <- data.frame(y = tmp_input_frame$direction,
+                              x1 = lag(tmp_input_frame$spread, 1),
+                              x2 = lag(tmp_input_frame$spread, 2),
+                              x3 = lag(tmp_input_frame$spread, 3),
+                              x4 = lag(tmp_input_frame$spread, 4),
+                              x5 = lag(tmp_input_frame$spread, 5),
+                              x6 = lag(tmp_input_frame$spread, 6),
+                              x7 = lag(tmp_input_frame$spread, 7)) %>%
+      na.omit
+    
+    test_frame <- data.frame(x1 = tmp_input_frame$spread,
+                             x2 = lag(tmp_input_frame$spread, 1),
+                             x3 = lag(tmp_input_frame$spread, 2),
+                             x4 = lag(tmp_input_frame$spread, 3),
+                             x5 = lag(tmp_input_frame$spread, 4),
+                             x6 = lag(tmp_input_frame$spread, 5),
+                             x7 = lag(tmp_input_frame$spread, 6)) %>%
+      tail(1)
+  
+    probit_forecast <- glm(y ~ .,
+                           data = train_frame[, 1:(lags + 1), drop = FALSE],
+                           family = binomial("probit")) %>%
+      predict(newdata = test_frame[, 1:lags, drop = FALSE],
+              type = "response") %>%
+      as.numeric
+    
+    logit_forecast <- glm(y ~ .,
+                           data = train_frame[, 1:(lags + 1), drop = FALSE],
+                           family = binomial("logit")) %>%
+      predict(newdata = test_frame[, 1:lags, drop = FALSE],
+              type = "response") %>%
+      as.numeric
+    
+    forecast <- data.frame(date = x,
+                           probit = probit_forecast,
+                           logit = logit_forecast)
+    
+    return(forecast)
+  }) %>%
+    rbind_all %>%
+    left_join(data_frame %>% filter(date >= test_start), ., by = "date") %>%
+    transmute(date,
+              spread = ifelse(spread > 0, 1, 0),
+              probit = ifelse(probit > 0.5, 1, 0),
+              logit = ifelse(logit > 0.5, 1, 0)) %>%
+    transmute(date,
+              probit = ifelse(probit == spread, 1, 0),
+              logit = ifelse(logit == spread, 1, 0)) %>%
+    summarise(probit = sum(probit) / n(),
+              logit = sum(logit) / n())
+  
+  return(fore_out)
 }

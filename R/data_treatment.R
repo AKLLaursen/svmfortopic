@@ -344,7 +344,7 @@ pre_model_processing_spot <- function(input_data, path_figure = NULL,
                    ylabel = "Base spot price, EUR/MWh",
                    file_name = "5_spot_untreated_line_plot.eps",
                    save_path = path_figure,
-                   do_print = "Yes")
+                   do_print = TRUE)
   }
   
   # Get unfiltered descriptive statistics
@@ -375,7 +375,7 @@ pre_model_processing_spot <- function(input_data, path_figure = NULL,
              input = "price",
              file_name = "5_spot_untreated_acf_pacf.eps",
              save_path = path_figure,
-             do_print = "Yes")
+             do_print = TRUE)
   }
   
   # Plot parellogram
@@ -496,28 +496,42 @@ pre_model_processing_intraday <- function(input_data, path_figure = NULL,
                    ylabel = "Base spread price, EUR/MWh",
                    file_name = "5_spread_untreated_line_plot.eps",
                    save_path = path_figure,
-                   do_print = "Yes")
+                   do_print = TRUE)
   }
-  
-  
-  demean_data_frame <- data_frame %>%
-    transmute(date,
-              price = price - mean(price, na.rm = TRUE))
   
   # Plot autocorrelation
   if (path_figure %>% is.null %>% `!`) {
-    draw_acf(demean_data_frame,
+    draw_acf(data_frame,
              lags = 72,
+             input = "spread",
              file_name = "5_spread_untreated_acf_pacf.eps",
              save_path = path_figure,
-             do_print = "Yes")
+             do_print = TRUE)
   }
   
   # Plot parellogram
   if (path_figure %>% is.null %>% `!`) {
-    draw_periodogram(demean_data_frame,
+    draw_periodogram(data_frame,
                      log = FALSE,
+                     input = "spread",
                      file_name = "5_spread_untreated_periodogram.eps",
                      save_path = path_figure,
                      do_print = TRUE)
-  }}
+  }
+  
+  # Filter outliers
+  outlier_filtered_frame <- data_frame %>%
+    transmute(date,
+              price = spread) %>%
+    outlier_filt(3) %>%
+    transmute(date,
+              spread = price)
+  
+  # Create data structure
+  out <- outlier_filtered_frame %>%
+    transmute(date,
+              direction = ifelse(spread > 0, 1, 0) %>% as.factor,
+              spread)
+  
+  return(out)
+}

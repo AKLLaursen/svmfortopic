@@ -177,11 +177,11 @@ draw_line_plot <- function(input_frame, xlabel, ylabel, input, file_name = NULL,
 #' @export
 draw_acf <- function(input_frame, lags, input, file_name = NULL, save_path = NULL,
                      do_print = TRUE) {
-  stats_acf <- input_frame %>% use_series(input) %>%
+  stats_acf <- input_frame %>% `[`(, input) %>%
     acf(lag.max = lags, plot = FALSE) %>%
     with(data.frame(lag, acf))
   
-  stats_pacf <- input_frame %>% use_series(input) %>%
+  stats_pacf <- input_frame %>% `[`(, input) %>%
     pacf(lag.max = lags, plot = FALSE) %>%
     with(data.frame(lag, acf))
   
@@ -238,7 +238,7 @@ draw_acf <- function(input_frame, lags, input, file_name = NULL, save_path = NUL
 #' 
 draw_periodogram <- function(input_frame, input, log = TRUE, file_name = NULL,
                              save_path = NULL, do_print = TRUE) {
-   period <- spec.pgram(input_frame %>% use_series(input),
+   period <- spec.pgram(input_frame %>% `[`(, input),
                         taper = 0,
                         detrend = FALSE,
                         demean = FALSE,

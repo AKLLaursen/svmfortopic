@@ -2,6 +2,8 @@
 
 #' @importFrom magrittr %>%
 `%>%` <- magrittr::`%>%`
+#' @importFrom magrittr %<>%
+`%<>%` <- magrittr::`%<>%`
 #' @importFrom magrittr add
 magrittr <- magrittr::add
 #' @importFrom magrittr use_series

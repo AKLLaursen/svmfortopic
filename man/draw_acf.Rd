@@ -4,7 +4,7 @@
 \alias{draw_acf}
 \title{Flexible function for plotting autocorrelation functions in ggplot}
 \usage{
-draw_acf(input_frame, lags, file_name = NULL, save_path = NULL,
+draw_acf(input_frame, lags, input, file_name = NULL, save_path = NULL,
   do_print = TRUE)
 }
 \arguments{
