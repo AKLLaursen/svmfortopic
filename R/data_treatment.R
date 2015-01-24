@@ -158,12 +158,13 @@ na_filter <- function(input_data) {
       if (length(input_data[.idx[ii] - 1]) == 0) {
         input_data[.idx[ii]] <- mean(input_data[(.idx[ii] + .bp):(.idx[ii] +
                                                                     .bp + 1)])
-      } else if (.idx[ii] + 1 > length(input_data)) {
+      } else if (!exists(".bp")) {
         input_data[.idx[ii]] <- mean(input_data[(.idx[ii] - 2):(.idx[ii] - 1)])
         cat(paste0("Replaced ", ii, "\n"))
       } else {
         input_data[.idx[ii]] <- input_data[.idx[ii] - 1] +
           (input_data[.idx[ii] + .bp] - input_data[.idx[ii] - 1]) / (.bp + 1)
+        rm(.bp)
         cat(paste0("Replaced ", ii, "\n"))
       }
     }
@@ -329,6 +330,9 @@ outlier_filt <- function(input_frame, std_filt = 3)
 #' @export
 pre_model_processing_spot <- function(input_data, path_figure = NULL,
                                  path_table = NULL) {
+  
+  # Set date/time format
+  set_data_time()
   
   # Take the mean across each day to find the base spot price
   data_frame <- input_data %>%
@@ -526,6 +530,17 @@ pre_model_processing_intraday <- function(input_data, path_figure = NULL,
     outlier_filt(3) %>%
     transmute(date,
               spread = price)
+  
+  # Draw line plot to of the outlier filtered data series
+  if (path_figure %>% is.null %>% `!`) {
+    draw_line_plot(outlier_filtered_frame,
+                   input = "spread",
+                   xlabel = "Year",
+                   ylabel = "Base spread price, EUR/MWh",
+                   file_name = "5_spread_treated_line_plot.eps",
+                   save_path = path_figure,
+                   do_print = TRUE)
+  }
   
   # Create data structure
   out <- outlier_filtered_frame %>%

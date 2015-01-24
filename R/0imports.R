@@ -12,6 +12,10 @@ use_series <- magrittr::use_series
 extract <- magrittr::extract
 #' @importFrom magrittr set_names
 set_names <- magrittr::set_names
+#' @importFrom magrittr subtract
+subtract <- magrittr::subtract
+#' @importFrom magrittr raise_to_power
+raise_to_power <- magrittr::raise_to_power
 
 # Imports from rvest
 
@@ -44,6 +48,8 @@ filter <- dplyr::filter
 transmute <- dplyr::transmute
 #' @importFrom dplyr left_join
 left_join <- dplyr::left_join
+#' @importFrom dplyr add_rownames
+add_rownames <- dplyr::add_rownames
 
 # Imports from broom
 
@@ -102,7 +108,23 @@ arrangeGrob <- gridExtra::arrangeGrob
 #' @importFrom tseries adf.test
 adf.test <- tseries::adf.test
 
-# Imports from stargazer
+# Imports from xtable
 
-#' @importFrom stargazer stargazer
-stargazer <- stargazer::stargazer
+#' @importFrom xtable xtable
+xtable <- xtable::xtable
+
+# Imports from rugarch
+
+#' @importFrom rugarch ugarchspec
+ugarchspec <- rugarch::ugarchspec
+#' @importFrom rugarch ugarchfit
+ugarchfit <- rugarch::ugarchfit
+#' @importFrom rugarch infocriteria
+infocriteria <- rugarch::infocriteria
+#' @importFrom rugarch residuals
+residuals <- rugarch::residuals
+
+# Imports from e1071
+
+#' @importFrom e1071 svm
+svm <- e1071::svm

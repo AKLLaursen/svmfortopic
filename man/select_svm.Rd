@@ -5,12 +5,13 @@
 \title{Function basically performing the same task as e1071::tune, but here made
 clear.}
 \usage{
-select_svm(input_frame, kernel = "linear", max.cost = NULL,
-  min.cost = NULL, gamma = NULL, coef0 = NULL, max.polynomial = 3,
-  max.epsilon = 1, min.epsilon = 0.1, cachesize = 8000)
+select_svm(input_frame, kernel = "linear", max.polynomial = 2,
+  cachesize = 8000, min_lag = 1)
 }
 \arguments{
 \item{input_frame}{A data frame containing a date and a price.}
+
+\item{cachesize}{cache memory in MB (default 4000)}
 
 \item{max.cost}{An integer containing the maximum allowed cost. If left as
 NULL, it will default to floor(max(abs(price)) + 3 * sd(price))}
@@ -18,8 +19,6 @@ NULL, it will default to floor(max(abs(price)) + 3 * sd(price))}
 \item{max.epsilon}{An interger being the max allowed epsilon parameter. If
 left as null, it will default to 4, being the value where no support vectors
 are returned for the base spot price for Germany.}
-
-\item{cachesize}{cache memory in MB (default 4000)}
 }
 \description{
 Function basically performing the same task as e1071::tune, but here made

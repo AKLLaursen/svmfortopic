@@ -20,5 +20,6 @@ Imports:
     e1071,
     tseries,
     gridExtra,
-    stargazer
+    xtable,
+    rugarch
 License: LICENCE
