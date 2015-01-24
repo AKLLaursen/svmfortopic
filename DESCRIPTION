@@ -21,5 +21,6 @@ Imports:
     tseries,
     gridExtra,
     xtable,
-    rugarch
+    rugarch,
+    parallel
 License: LICENCE

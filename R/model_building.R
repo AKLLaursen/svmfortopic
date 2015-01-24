@@ -456,7 +456,7 @@ oos_forecast <- function(input_frame, forecast_type = "arima",
   
   date_vec <- seq(test_start, tail(input_frame$date, 1), by = "day")
   
-  fore_out <- lapply(date_vec, function(x) {
+  fore_out <- mclapply(date_vec, function(x) {
     
     cat(paste0("\n\nForecasting ", x, "\n\n"))
     
@@ -591,7 +591,8 @@ oos_forecast <- function(input_frame, forecast_type = "arima",
     print(forecast_out)
     if (length(save_path) > 0 ) write.csv(forecast_out, file = paste0(save_path, "/", forecast_type, "_", x, ".csv"))
     return(forecast_out)
-  }
+  },
+  mc.cores = getOption("mc.cores", 8L)
   ) %>%
     rbind_all %>%
     left_join(input_frame %>% filter(date >= test_start), ., by = "date")

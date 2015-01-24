@@ -128,3 +128,6 @@ residuals <- rugarch::residuals
 
 #' @importFrom e1071 svm
 svm <- e1071::svm
+
+#' @importFrom parallel mclapply
+parallel <- parallel::mclapply
