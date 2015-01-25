@@ -636,7 +636,7 @@ select_binary_eco <- function(input_frame, method = "logit") {
 #' @export
 select_svm_bin <- function(input_frame, kernel = "linear", min.lag = 7,
                            cost = 10^seq(-2, 1, 0.1), max.polynomial = 4,
-                           cachesize = 8000, cores = 4L) {
+                           cachesize = 1000, cores = 4L) {
   
   lags <- 1:min.lag + 1
   
@@ -696,7 +696,7 @@ select_svm_bin <- function(input_frame, kernel = "linear", min.lag = 7,
     
     svm_out <- mclapply(lags, function(t) {
       mclapply(poly, function(d) {
-        mclapply(cost, function(c) {
+        lapply(cost, function(c) {
           cat(paste0("Calculating svm classification with polynomial kernel ",
                      "of degree, ", d, " with ", t - 1, " lags, and", c,
                      " cost."))
@@ -732,7 +732,7 @@ select_svm_bin <- function(input_frame, kernel = "linear", min.lag = 7,
                       support_vectors)          
           cat(" ... Done\n")
           return(out)
-        }, mc.cores = getOption("mc.cores", cores)
+        }
         ) %>% rbind_all
       }, mc.cores = getOption("mc.cores", cores)
       ) %>%rbind_all
@@ -764,7 +764,7 @@ select_svm_bin <- function(input_frame, kernel = "linear", min.lag = 7,
                            support_vectors = use_series(., SV) %>%
                              length)
                 } else {
-                  data.frame(clas_error = NA,
+                  data.frame(class_error = NA,
                              support_vectors = NA)
                 }
               } %>%
@@ -788,8 +788,8 @@ select_svm_bin <- function(input_frame, kernel = "linear", min.lag = 7,
     
     svm_out <- mclapply(lags, function(t) {
       mclapply(coef0, function(s) {
-        mclapply(gamma, function(g) {
-          mclapply(cost, function(e) {
+        lapply(gamma, function(g) {
+          lapply(cost, function(c) {
             cat(paste0("Calculating svm regression with sigmoid kernel with ",
                        t - 1, " lags, ", s, " coef0, ", g, " gamma, and ", c,
                        " cost."))
@@ -812,7 +812,7 @@ select_svm_bin <- function(input_frame, kernel = "linear", min.lag = 7,
                              support_vectors = use_series(., SV) %>%
                                length)
                   } else {
-                    data.frame(clas_error = NA,
+                    data.frame(class_error = NA,
                                support_vectors = NA)
                   }
                 } %>%
@@ -825,9 +825,9 @@ select_svm_bin <- function(input_frame, kernel = "linear", min.lag = 7,
                         support_vectors)
             cat(" ... Done\n")
             return(out)
-          }, mc.cores = getOption("mc.cores", cores)
+          }
           ) %>% rbind_all
-        }, mc.cores = getOption("mc.cores", cores)
+        }
         ) %>% rbind_all
       }, mc.cores = getOption("mc.cores", cores)
       ) %>% rbind_all

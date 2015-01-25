@@ -4,7 +4,7 @@
 \title{Function to cross validate binary model}
 \usage{
 select_svm_bin(input_frame, kernel = "linear", min.lag = 7,
-  cost = 10^seq(-2, 1, 0.1), max.polynomial = 4, cachesize = 8000,
+  cost = 10^seq(-2, 1, 0.1), max.polynomial = 4, cachesize = 1000,
   cores = 4L)
 }
 \description{
