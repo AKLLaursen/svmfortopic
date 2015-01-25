@@ -3,8 +3,9 @@
 \alias{select_svm_bin}
 \title{Function to cross validate binary model}
 \usage{
-select_svm_bin(input_frame, kernel = "linear", max.polynomial = 4,
-  cachesize = 8000, min_lag = 7)
+select_svm_bin(input_frame, kernel = "linear", min.lag = 7,
+  cost = 10^seq(-2, 1, 0.1), max.polynomial = 4, cachesize = 8000,
+  cores = 4L)
 }
 \description{
 Function to cross validate binary model

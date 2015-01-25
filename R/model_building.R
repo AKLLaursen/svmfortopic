@@ -433,7 +433,8 @@ select_svm <- function(input_frame, kernel = "linear", max.polynomial = 2,
 #' Function doing oos forecast using a given model type over a given horison
 #' @export
 oos_forecast <- function(input_frame, forecast_type = "arima",
-                         test_start = "2012-11-01", h = 1, save_path = NULL) {
+                         test_start = "2012-11-01", h = 1, save_path = NULL,
+                         outlier_filt = TRUE) {
   
   test_start %<>% as.Date
   
@@ -488,7 +489,11 @@ oos_forecast <- function(input_frame, forecast_type = "arima",
     deseason_data_frame <- data.frame(date = de_lrts_data_frame$date,
                                       price = short_seas_fit$residuals)
     
-    deseason_filtered_frame <- outlier_filt(deseason_data_frame, 3)
+    if (outlier_filt) {
+      deseason_filtered_frame <- outlier_filt(deseason_data_frame, 3)
+    } else {
+      deseason_filtered_frame <- deseason_data_frame
+    }
     
     svm_input <- data.frame(y = deseason_filtered_frame$price,
                             x1 = lag(deseason_filtered_frame$price, 1),
@@ -629,11 +634,11 @@ select_binary_eco <- function(input_frame, method = "logit") {
 #' Function to cross validate binary model
 #'
 #' @export
-select_svm_bin <- function(input_frame, kernel = "linear", max.polynomial = 4,
-                           cachesize = 8000, min_lag = 7, cores = 4L) {
+select_svm_bin <- function(input_frame, kernel = "linear", min.lag = 7,
+                           cost = 10^seq(-2, 1, 0.1), max.polynomial = 4,
+                           cachesize = 8000, cores = 4L) {
   
-  lags <- 1:min_lag + 1
-  cost <- 10^seq(-1, 1, 0.1)
+  lags <- 1:min.lag + 1
   
   train_frame <- data.frame(y = input_frame$direction,
                             x1 = lag(input_frame$spread, 1),
@@ -656,13 +661,13 @@ select_svm_bin <- function(input_frame, kernel = "linear", max.polynomial = 4,
                        kernel = kernel,
                        scale = TRUE,
                        type = "C-classification",
-                       cost = cost,
-                       cachesize = cachesize)) %>%
+                       cost = c,
+                       cachesize = cachesize)) %>% 
           {
             if (inherits(., "try-error") %>% `!`) {
-              data.frame(clas_error = fitted(.) %>%
+              data.frame(class_error = fitted(.) %>%
                            as.numeric %>%
-                           subtract(train_frame[, 1], .) %>%
+                           subtract(train_frame[, 1] %>% as.numeric, .) %>%
                            abs %>%
                            mean,
                          support_vectors = use_series(., SV) %>%
@@ -675,7 +680,7 @@ select_svm_bin <- function(input_frame, kernel = "linear", max.polynomial = 4,
           transmute(kernel = kernel,
                     lags = t - 1,
                     cost = c,
-                    clas_error,
+                    class_error,
                     support_vectors)
         
         cat(" ... Done\n")
@@ -707,24 +712,23 @@ select_svm_bin <- function(input_frame, kernel = "linear", max.polynomial = 4,
                          cachesize = cachesize)) %>%
             {
               if (inherits(., "try-error") %>% `!`) {
-                data.frame(clas_error = fitted(.) %>%
+                data.frame(class_error = fitted(.) %>%
                              as.numeric %>%
-                             subtract(train_frame[, 1], .) %>%
+                             subtract(train_frame[, 1] %>% as.numeric, .) %>%
                              abs %>%
                              mean,
                            support_vectors = use_series(., SV) %>%
                              length)
                 } else {
-                  data.frame(clas_error = NA,
+                  data.frame(class_error = NA,
                              support_vectors = NA)
                 }
               } %>%
-            } %>%
             transmute(kernel = kernel,
                       lags = t - 1,
                       cost = c,
                       degree = d,
-                      clas_error,
+                      class_error,
                       support_vectors)          
           cat(" ... Done\n")
           return(out)
@@ -752,9 +756,9 @@ select_svm_bin <- function(input_frame, kernel = "linear", max.polynomial = 4,
                          cachesize = cachesize)) %>%
             {
               if (inherits(., "try-error") %>% `!`) {
-                data.frame(clas_error = fitted(.) %>%
+                data.frame(class_error = fitted(.) %>%
                              as.numeric %>%
-                             subtract(train_frame[, 1], .) %>%
+                             subtract(train_frame[, 1] %>% as.numeric, .) %>%
                              abs %>%
                              mean,
                            support_vectors = use_series(., SV) %>%
@@ -764,12 +768,11 @@ select_svm_bin <- function(input_frame, kernel = "linear", max.polynomial = 4,
                              support_vectors = NA)
                 }
               } %>%
-            } %>%
             transmute(kernel = kernel,
                       lags = t - 1,
                       cost = c,
                       gamma = g,
-                      clas_error,
+                      class_error,
                       support_vectors)
           cat(" ... Done\n")
           return(out)
@@ -801,9 +804,9 @@ select_svm_bin <- function(input_frame, kernel = "linear", max.polynomial = 4,
                            cachesize = cachesize)) %>%
               {
                 if (inherits(., "try-error") %>% `!`) {
-                  data.frame(clas_error = fitted(.) %>%
+                  data.frame(class_error = fitted(.) %>%
                                as.numeric %>%
-                               subtract(train_frame[, 1], .) %>%
+                               subtract(train_frame[, 1] %>% as.numeric, .) %>%
                                abs %>%
                                mean,
                              support_vectors = use_series(., SV) %>%
@@ -813,27 +816,29 @@ select_svm_bin <- function(input_frame, kernel = "linear", max.polynomial = 4,
                                support_vectors = NA)
                   }
                 } %>%
-              } %>%
               transmute(kernel = kernel,
                         lags = t - 1,
-                        cost = cost,
-                        epsilon = e,
+                        cost = c,
                         gamma = g,
-                        coef0 = s,
-                        mse,
+                        coef0 = s, 
+                        class_error,
                         support_vectors)
             cat(" ... Done\n")
             return(out)
-          }) %>% rbind_all
-        }) %>% rbind_all
-      }) %>% rbind_all
-    }) %>% rbind_all
+          }, mc.cores = getOption("mc.cores", cores)
+          ) %>% rbind_all
+        }, mc.cores = getOption("mc.cores", cores)
+        ) %>% rbind_all
+      }, mc.cores = getOption("mc.cores", cores)
+      ) %>% rbind_all
+    }, mc.cores = getOption("mc.cores", cores)
+    ) %>% rbind_all
   }
 }
 
 #' @export
 oos_classification <- function(input_frame, test_start = "2012-11-01",
-                               lags = 5) {
+                               cachesize = 4000) {
   
   test_start %<>% as.Date
   
@@ -876,22 +881,46 @@ oos_classification <- function(input_frame, test_start = "2012-11-01",
       tail(1)
   
     probit_forecast <- glm(y ~ .,
-                           data = train_frame[, 1:(lags + 1), drop = FALSE],
+                           data = train_frame[, 1:6, drop = FALSE],
                            family = binomial("probit")) %>%
-      predict(newdata = test_frame[, 1:lags, drop = FALSE],
+      predict(newdata = test_frame[, 1:5, drop = FALSE],
               type = "response") %>%
       as.numeric
     
     logit_forecast <- glm(y ~ .,
-                           data = train_frame[, 1:(lags + 1), drop = FALSE],
+                           data = train_frame[, 1:6, drop = FALSE],
                            family = binomial("logit")) %>%
-      predict(newdata = test_frame[, 1:lags, drop = FALSE],
+      predict(newdata = test_frame[, 1:5, drop = FALSE],
               type = "response") %>%
+      as.numeric
+    
+    svm_linear_forecast <- svm(y ~ .,
+                               data = train_frame[, 1:5],
+                               kernel = "linear",
+                               scale = TRUE,
+                               type = "C-classification",
+                               cost = 0.4,
+                               cachesize = cachesize) %>%
+      predict(new_data = test_frame[, 1:4, drop = FALSE]) %>%
+      as.numeric
+    
+    svm_polynomial_forecast <- svm(y ~ .,
+                                   data = train_frame[, 1:7],
+                                   kernel = "polynomial",
+                                   scale = TRUE,
+                                   type = "C-classification",
+                                   cost = 0.8,
+                                   degree = 3,
+                                   gamma = 1,
+                                   coef0 = 1,
+                                   cachesize = cachesize) %>%
+      predict(new_data = test_frame[, 1:4, drop = FALSE]) %>%
       as.numeric
     
     forecast <- data.frame(date = x,
                            probit = probit_forecast,
-                           logit = logit_forecast)
+                           logit = logit_forecast,
+                           svm_linear = svm_linear_forecast)
     
     return(forecast)
   }) %>%

@@ -4,7 +4,8 @@
 \title{Function doing oos forecast using a given model type over a given horison}
 \usage{
 oos_forecast(input_frame, forecast_type = "arima",
-  test_start = "2012-11-01", h = 1, save_path = NULL)
+  test_start = "2012-11-01", h = 1, save_path = NULL,
+  outlier_filt = TRUE)
 }
 \description{
 Function doing oos forecast using a given model type over a given horison

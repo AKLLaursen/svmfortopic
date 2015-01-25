@@ -487,7 +487,7 @@ pre_model_processing_spot <- function(input_data, path_figure = NULL,
 #' 
 #' @export
 pre_model_processing_intraday <- function(input_data, path_figure = NULL,
-                                      path_table = NULL) {
+                                          path_table = NULL) {
   # Take the mean across each day to find the base spread
   data_frame <- input_data %>%
     group_by(date) %>%
