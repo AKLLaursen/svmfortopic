@@ -626,24 +626,16 @@ select_binary_eco <- function(input_frame, method = "logit") {
   }) %>% rbind_all
 }
 
+#' Function to cross validate binary model
 #'
 #' @export
-select_svm_bin <- function(input_frame, kernel = "linear", max.polynomial = 2,
-                           cachesize = 8000, min_lag = 7) {
+select_svm_bin <- function(input_frame, kernel = "linear", max.polynomial = 4,
+                           cachesize = 8000, min_lag = 7, cores = 4L) {
   
-  cost <- max(abs(input_frame$spread))
+  lags <- 1:min_lag + 1
+  cost <- 10^seq(-1, 1, 0.1)
   
-  noise_param <- input_frame %>%
-    use_series(spread) %>%
-    stats::filter(rep(1/7, 7), sides = 2) %>%
-    subtract(input_frame %>% use_series(spread), .) %>%
-    sd(na.rm = TRUE)
-  
-  spread_param <- input_frame %>%
-    use_series(spread) %>%
-    sd(na.rm = TRUE)
-  
-  train_frame <- data.frame(y = input_frame$spread,
+  train_frame <- data.frame(y = input_frame$direction,
                             x1 = lag(input_frame$spread, 1),
                             x2 = lag(input_frame$spread, 2),
                             x3 = lag(input_frame$spread, 3),
@@ -654,194 +646,188 @@ select_svm_bin <- function(input_frame, kernel = "linear", max.polynomial = 2,
     na.omit
   
   if (kernel == "linear") {
-    svm_out <- 
-      lapply((min_lag + 1):ncol(train_frame), function(t) {
-        lapply(noise_param * c(0.5, 0.75, 1, 1.25, 1.5), function(e) {
-          cat(paste0("Calculating svm regression with linear kernel, ", t - 1,
-                     " lags, ", cost, " cost, and ", e, " epsilon"))
-          
+    svm_out <- mclapply(lags, function(t) {
+      mclapply(cost, function(c) {
+        cat(paste0("Calculating svm classification with linear kernel, ",
+                   t - 1, " lags, ", c, " and cost."))
+        
+        out <- try(svm(y ~ .,
+                       data = train_frame[, 1:t],
+                       kernel = kernel,
+                       scale = TRUE,
+                       type = "C-classification",
+                       cost = cost,
+                       cachesize = cachesize)) %>%
+          {
+            if (inherits(., "try-error") %>% `!`) {
+              data.frame(clas_error = fitted(.) %>%
+                           as.numeric %>%
+                           subtract(train_frame[, 1], .) %>%
+                           abs %>%
+                           mean,
+                         support_vectors = use_series(., SV) %>%
+                           length)
+              } else {
+                data.frame(clas_error = NA,
+                           support_vectors = NA)
+              }
+            } %>%
+          transmute(kernel = kernel,
+                    lags = t - 1,
+                    cost = c,
+                    clas_error,
+                    support_vectors)
+        
+        cat(" ... Done\n")
+        return(out)
+      }, mc.cores = getOption("mc.cores", cores)
+      ) %>% rbind_all
+    }, mc.cores = getOption("mc.cores", cores)
+    ) %>% rbind_all
+  } else if (kernel == "polynomial") {
+    gamma <- 1
+    coef0 <- 1
+    poly <- 2:max.polynomial
+    
+    svm_out <- mclapply(lags, function(t) {
+      mclapply(poly, function(d) {
+        mclapply(cost, function(c) {
+          cat(paste0("Calculating svm classification with polynomial kernel ",
+                     "of degree, ", d, " with ", t - 1, " lags, and", c,
+                     " cost."))
           out <- try(svm(y ~ .,
                          data = train_frame[, 1:t],
                          kernel = kernel,
                          scale = TRUE,
                          type = "C-classification",
-                         cost = cost,
-                         epsilon = e,
+                         cost = c,
+                         gamma = gamma,
+                         coef0 = coef0,
+                         degree = d,
                          cachesize = cachesize)) %>%
             {
               if (inherits(., "try-error") %>% `!`) {
-                data.frame(mse = fitted(.) %>%
+                data.frame(clas_error = fitted(.) %>%
                              as.numeric %>%
                              subtract(train_frame[, 1], .) %>%
-                             raise_to_power(2) %>%
+                             abs %>%
                              mean,
                            support_vectors = use_series(., SV) %>%
                              length)
                 } else {
-                  data.frame(mse = NA,
+                  data.frame(clas_error = NA,
                              support_vectors = NA)
                 }
               } %>%
+            } %>%
             transmute(kernel = kernel,
                       lags = t - 1,
-                      cost = cost,
-                      epsilon = e,
-                      mse,
-                      support_vectors)
-          
+                      cost = c,
+                      degree = d,
+                      clas_error,
+                      support_vectors)          
           cat(" ... Done\n")
           return(out)
-        }) %>% rbind_all
-      }) %>% rbind_all
-  } else if (kernel == "polynomial") {
-    gamma <- 1
-    coef0 <- 1
-    
-    svm_out <- 
-      lapply((min_lag + 1):ncol(train_frame), function(t) {
-        out <- lapply(2:max.polynomial, function(d) {
-          lapply(noise_param * c(0.5, 0.75, 1, 1.25, 1.5),
-                 function(e) {
-                   cat(paste0("Calculating svm regression with polynomial kernel ",
-                              "of degree, ", d, " with ", t - 1, " lags, ", cost,
-                              " cost, and ", e, " epsilon"))
-                   
-                   out <- try(svm(y ~ .,
-                                  data = train_frame[, 1:t],
-                                  kernel = kernel,
-                                  scale = TRUE,
-                                  type = "C-classification",
-                                  cost = cost,
-                                  epsilon = e,
-                                  gamma = gamma,
-                                  coef0 = coef0,
-                                  degree = d,
-                                  cachesize = cachesize)) %>%    
-                    {
-                      if (inherits(., "try-error") %>% `!`) {
-                        data.frame(mse = fitted(.) %>%
-                                     as.numeric %>%
-                                     subtract(train_frame[, 1], .) %>%
-                                     raise_to_power(2) %>%
-                                     mean,
-                                   support_vectors = use_series(., SV) %>%
-                                     length)
-                      } else {
-                        data.frame(mse = NA,
-                                   support_vectors = NA)
-                      }
-                    } %>%
-                      transmute(kernel = kernel,
-                                lags = t - 1,
-                                cost = cost,
-                                epsilon = e,
-                                degree = d,
-                                mse,
-                                support_vectors)
-                    
-                    cat(" ... Done\n")
-                    return(out)
-                  }) %>% rbind_all
-        }) %>% rbind_all
-      }) %>% rbind_all
+        }, mc.cores = getOption("mc.cores", cores)
+        ) %>% rbind_all
+      }, mc.cores = getOption("mc.cores", cores)
+      ) %>%rbind_all
+    }, mc.cores = getOption("mc.cores", cores)
+    ) %>% rbind_all
   } else if (kernel == "radial") {
-    svm_out <-
-      lapply((min_lag + 1):ncol(train_frame), function(t) {
-        lapply(spread_param * c(0.5, 0.75, 1, 1.25, 1.5),
-               function(g) {
-                 lapply(noise_param * c(0.5, 0.75, 1, 1.25, 1.5),
-                        function(e) {
-                          cat(paste0("Calculating svm regression with radial basis ker",
-                                     "nel with ", t - 1, " lags, ", g, " gamma, ", cost,
-                                     " cost, and ", e, " epsilon"))
-                          
-                          out <- try(svm(y ~ .,
-                                         data = train_frame[, 1:t],
-                                         kernel = kernel,
-                                         scale = TRUE,
-                                         type = "C-classification",
-                                         cost = cost,
-                                         epsilon = e,
-                                         gamma = g,
-                                         cachesize = cachesize)) %>%
-                          {
-                            if (inherits(., "try-error") %>% `!`) {
-                              data.frame(mse = fitted(.) %>%
-                                           as.numeric %>%
-                                           subtract(train_frame[, 1], .) %>%
-                                           raise_to_power(2) %>%
-                                           mean,
-                                         support_vectors = use_series(., SV) %>%
-                                           length)
-                            } else {
-                              data.frame(mse = NA,
-                                         support_vectors = NA)
-                            }
-                          } %>%
-                            transmute(kernel = kernel,
-                                      lags = t - 1,
-                                      cost = cost,
-                                      epsilon = e,
-                                      gamma = g,
-                                      mse,
-                                      support_vectors)
-                          
-                          cat(" ... Done\n")
-                          return(out)
-                        }) %>% rbind_all
-               }) %>% rbind_all
-      }) %>% rbind_all
+    gamma <- 10^seq(-6, 1, 0.5)
+    
+    svm_out <- mclapply(lags, function(t) {
+      mclapply(gamma,function(g) {
+        mclapply(cost, function(c) {
+          cat(paste0("Calculating svm classification with radial basis kernel ",
+                     "with ", t - 1, " lags, ", g, " gamma, and", c, " cost."))
+          out <- try(svm(y ~ .,
+                         data = train_frame[, 1:t],
+                         kernel = kernel,
+                         scale = TRUE,
+                         type = "C-classification",
+                         cost = c,
+                         gamma = g,
+                         cachesize = cachesize)) %>%
+            {
+              if (inherits(., "try-error") %>% `!`) {
+                data.frame(clas_error = fitted(.) %>%
+                             as.numeric %>%
+                             subtract(train_frame[, 1], .) %>%
+                             abs %>%
+                             mean,
+                           support_vectors = use_series(., SV) %>%
+                             length)
+                } else {
+                  data.frame(clas_error = NA,
+                             support_vectors = NA)
+                }
+              } %>%
+            } %>%
+            transmute(kernel = kernel,
+                      lags = t - 1,
+                      cost = c,
+                      gamma = g,
+                      clas_error,
+                      support_vectors)
+          cat(" ... Done\n")
+          return(out)
+        }, mc.cores = getOption("mc.cores", cores)
+        ) %>% rbind_all
+      }, mc.cores = getOption("mc.cores", cores)
+      ) %>% rbind_all
+    }, mc.cores = getOption("mc.cores", cores)
+    ) %>% rbind_all
   } else if (kernel == "sigmoid") {
-    svm_out <- 
-      lapply((min_lag + 1):ncol(train_frame), function(t) {
-        lapply(-1 * c(0.5, 0.75, 1, 1.25, 1.5), function(s) {
-          lapply(spread_param * c(0.5, 0.75, 1, 1.25, 1.5),
-                 function(g) {
-                   lapply(noise_param * c(0.5, 0.75, 1, 1.25, 1.5),
-                          function(e) {
-                            cat(paste0("Calculating svm regression with sigmoid kernel w",
-                                       "ith ", t - 1, " lags, ", s, " coef0, ", g,
-                                       " gamma, ", cost, " cost, and ", e, " epsilon"))
-                            
-                            out <- try(svm(y ~ .,
-                                           data = train_frame[, 1:t],
-                                           kernel = kernel,
-                                           scale = TRUE,
-                                           type = "C-classification",
-                                           cost = cost,
-                                           epsilon = e,
-                                           gamma = g,
-                                           coef0 = s,
-                                           cachesize = cachesize)) %>%
-                        {
-                          if (inherits(., "try-error") %>% `!`) {
-                            data.frame(mse = fitted(.) %>%
-                                         as.numeric %>%
-                                         subtract(train_frame[, 1], .) %>%
-                                         raise_to_power(2) %>%
-                                         mean,
-                                       support_vectors = use_series(., SV) %>%
-                                         length)
-                          } else {
-                            data.frame(mse = NA,
-                                       support_vectors = NA)
-                          }
-                        } %>%
-                          transmute(kernel = kernel,
-                                    lags = t - 1,
-                                    cost = cost,
-                                    epsilon = e,
-                                    gamma = g,
-                                    coef0 = s,
-                                    mse,
-                                    support_vectors)
-                        
-                        cat(" ... Done\n")
-                        return(out)
-                          }) %>% rbind_all
-                 }) %>% rbind_all
+    gamma <- 10^seq(-6, 1, 0.5)
+    coef0 <- -10^seq(-1, 1, 0.1)
+    
+    svm_out <- mclapply(lags, function(t) {
+      mclapply(coef0, function(s) {
+        mclapply(gamma, function(g) {
+          mclapply(cost, function(e) {
+            cat(paste0("Calculating svm regression with sigmoid kernel with ",
+                       t - 1, " lags, ", s, " coef0, ", g, " gamma, and ", c,
+                       " cost."))
+            out <- try(svm(y ~ .,
+                           data = train_frame[, 1:t],
+                           kernel = kernel,
+                           scale = TRUE,
+                           type = "C-classification",
+                           cost = c,
+                           gamma = g,
+                           coef0 = s,
+                           cachesize = cachesize)) %>%
+              {
+                if (inherits(., "try-error") %>% `!`) {
+                  data.frame(clas_error = fitted(.) %>%
+                               as.numeric %>%
+                               subtract(train_frame[, 1], .) %>%
+                               abs %>%
+                               mean,
+                             support_vectors = use_series(., SV) %>%
+                               length)
+                  } else {
+                    data.frame(clas_error = NA,
+                               support_vectors = NA)
+                  }
+                } %>%
+              } %>%
+              transmute(kernel = kernel,
+                        lags = t - 1,
+                        cost = cost,
+                        epsilon = e,
+                        gamma = g,
+                        coef0 = s,
+                        mse,
+                        support_vectors)
+            cat(" ... Done\n")
+            return(out)
+          }) %>% rbind_all
         }) %>% rbind_all
       }) %>% rbind_all
+    }) %>% rbind_all
   }
 }
 

@@ -483,6 +483,8 @@ pre_model_processing_spot <- function(input_data, path_figure = NULL,
   return(deseason_filtered_frame)
 }
 
+#' Function to tread intraday spread data.
+#' 
 #' @export
 pre_model_processing_intraday <- function(input_data, path_figure = NULL,
                                       path_table = NULL) {
