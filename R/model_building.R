@@ -215,7 +215,7 @@ garch_desc <- function(input_frame, p = 1, q = 1, path_figure = NULL,
 select_svm <- function(input_frame, kernel = "linear", max.polynomial = 2,
                        cachesize = 8000, min_lag = 1) {
   
-  cost <- max(abs(input_frame$price))
+  cost <- max(input_frame$price)
   
   noise_param <- input_frame %>%
     use_series(price) %>%
@@ -539,9 +539,8 @@ oos_forecast <- function(input_frame, forecast_type = "arima",
                       scale = TRUE,
                       type = "eps-regression",
                       cost = cost,
-                      epsilon = 0.5489968,
-                      cachesize = 4000,
-                      tolerence = 0.1) %>%
+                      epsilon = 0.5490,
+                      cachesize = 4000) %>%
         predict(newdata = svm_for_input) %>%
         as.numeric
     } else if (forecast_type == "svm_polynomial") {
@@ -554,9 +553,8 @@ oos_forecast <- function(input_frame, forecast_type = "arima",
                       degree = 2,
                       gamma = 1,
                       coef0 = 1,
-                      epsilon = 0.6862460,
-                      cachesize = 4000,
-                      tolerence = 0.1) %>%
+                      epsilon = 0.6862,
+                      cachesize = 4000) %>%
         predict(newdata = svm_for_input)
     } else if (forecast_type == "svm_radial") {
       forecast <- svm(y ~ .,
@@ -565,8 +563,8 @@ oos_forecast <- function(input_frame, forecast_type = "arima",
                       scale = TRUE,
                       type = "eps-regression",
                       cost = cost,
-                      epsilon = 0.1372492,
-                      gamma = 5.067765,
+                      epsilon = 0.1372,
+                      gamma = 5.0678,
                       cachesize = 4000) %>%
         predict(newdata = svm_for_input)
     } else if (forecast_type == "svm_sigmoid") {
@@ -576,8 +574,8 @@ oos_forecast <- function(input_frame, forecast_type = "arima",
                       scale = TRUE,
                       type = "eps-regression",
                       cost = cost,
-                      epsilon = 0.4117476,
-                      gamma = 0.02027106,
+                      epsilon = 0.4117,
+                      gamma = 0.0203,
                       coef0 = -1.5625,
                       cachesize = 4000) %>%
         predict(newdata = svm_for_input)
@@ -638,7 +636,7 @@ select_svm_bin <- function(input_frame, kernel = "linear", min.lag = 7,
                            cost = 10^seq(-2, 1, 0.1), max.polynomial = 4,
                            gamma = 10^seq(-6, 1, 0.5), 
                            coef0 = -10^seq(-1, 1, 0.1),
-                           cachesize = 1000, cores = 4L) {
+                           cachesize = 500, cores = 4L) {
   
   lags <- 1:min.lag + 1
   
@@ -740,12 +738,10 @@ select_svm_bin <- function(input_frame, kernel = "linear", min.lag = 7,
       ) %>%rbind_all
     }, mc.cores = getOption("mc.cores", cores)
     ) %>% rbind_all
-  } else if (kernel == "radial") {
-    gamma <- 10^seq(-6, 1, 0.5)
-    
+  } else if (kernel == "radial") {    
     svm_out <- mclapply(lags, function(t) {
-      mclapply(gamma,function(g) {
-        mclapply(cost, function(c) {
+      lapply(gamma,function(g) {
+        lapply(cost, function(c) {
           cat(paste0("Calculating svm classification with radial basis kernel ",
                      "with ", t - 1, " lags, ", g, " gamma, and", c, " cost."))
           out <- try(svm(y ~ .,
@@ -778,9 +774,9 @@ select_svm_bin <- function(input_frame, kernel = "linear", min.lag = 7,
                       support_vectors)
           cat(" ... Done\n")
           return(out)
-        }, mc.cores = getOption("mc.cores", cores)
+        }
         ) %>% rbind_all
-      }, mc.cores = getOption("mc.cores", cores)
+      }
       ) %>% rbind_all
     }, mc.cores = getOption("mc.cores", cores)
     ) %>% rbind_all
@@ -838,7 +834,7 @@ select_svm_bin <- function(input_frame, kernel = "linear", min.lag = 7,
 
 #' @export
 oos_classification <- function(input_frame, test_start = "2012-11-01",
-                               cachesize = 4000) {
+                               cachesize = 500, cores = 8L, save_path = NULL) {
   
   test_start %<>% as.Date
   
@@ -849,7 +845,7 @@ oos_classification <- function(input_frame, test_start = "2012-11-01",
   
   date_vec <- seq(test_start, tail(data_frame$date, 1), by = "day")
   
-  fore_out <- lapply(date_vec, function(x) {
+  fore_out <- mclapply(date_vec, function(x) {
     cat(paste0("Forecasting ", x, "\n"))
     
     tmp_input_frame <- data_frame %>%
@@ -858,7 +854,7 @@ oos_classification <- function(input_frame, test_start = "2012-11-01",
                 price = spread) %>%
       outlier_filt(3) %>%
       transmute(date,
-                direction = ifelse(price > 0, 1, 0) %>% as.factor,
+                direction = ifelse(price > 0, 1, 0) %>% as.factor(),
                 spread = price)
     
     train_frame <- data.frame(y = tmp_input_frame$direction,
@@ -900,12 +896,13 @@ oos_classification <- function(input_frame, test_start = "2012-11-01",
                                scale = TRUE,
                                type = "C-classification",
                                cost = 0.4,
-                               cachesize = cachesize) %>%
-      predict(new_data = test_frame[, 1:4, drop = FALSE]) %>%
+                               cachesize = 100) %>%
+      predict(newdata = test_frame[, 1:4, drop = FALSE]) %>%
+      as.character %>%
       as.numeric
     
     svm_polynomial_forecast <- svm(y ~ .,
-                                   data = train_frame[, 1:7],
+                                   data = train_frame[, 1:8],
                                    kernel = "polynomial",
                                    scale = TRUE,
                                    type = "C-classification",
@@ -914,11 +911,24 @@ oos_classification <- function(input_frame, test_start = "2012-11-01",
                                    gamma = 1,
                                    coef0 = 1,
                                    cachesize = cachesize) %>%
-      predict(new_data = test_frame[, 1:4, drop = FALSE]) %>%
+      predict(newdata = test_frame[, 1:7, drop = FALSE]) %>%
+      as.character %>%
+      as.numeric
+    
+    svm_radial_forecast <- svm(y ~ .,
+                               data = train_frame[, 1:8],
+                               kernel = "sigmoid",
+                               scale = TRUE,
+                               type = "C-classification",
+                               cost = 1,
+                               gamma = 1,
+                               cachesize = cachesize) %>%
+      predict(newdata = test_frame[, 1:7, drop = FALSE]) %>%
+      as.character %>%
       as.numeric
     
     svm_sigmoid_forecast <- svm(y ~ .,
-                                   data = train_frame[, 1:7],
+                                   data = train_frame[, 1:8],
                                    kernel = "sigmoid",
                                    scale = TRUE,
                                    type = "C-classification",
@@ -926,27 +936,27 @@ oos_classification <- function(input_frame, test_start = "2012-11-01",
                                    gamma = 0.3162,
                                    coef0 = -5.0119,
                                    cachesize = cachesize) %>%
-      predict(new_data = test_frame[, 1:4, drop = FALSE]) %>%
+      predict(newdata = test_frame[, 1:7, drop = FALSE]) %>%
+      as.character %>%
       as.numeric
     
     forecast <- data.frame(date = x,
                            probit = probit_forecast,
                            logit = logit_forecast,
-                           svm_linear = svm_linear_forecast)
+                           svm_linear = svm_linear_forecast,
+                           svm_polynomial = svm_polynomial_forecast,
+                           svm_radial = svm_radial_forecast,
+                           svm_sigmoid = svm_sigmoid_forecast)
     
+    if (length(save_path) > 0 ) write.csv(forecast, file = paste0(save_path, "/classification_", x, ".csv"))
     return(forecast)
-  }) %>%
+  }, mc.cores = getOption("mc.cores", cores)) %>%
     rbind_all %>%
     left_join(data_frame %>% filter(date >= test_start), ., by = "date") %>%
-    transmute(date,
-              spread = ifelse(spread > 0, 1, 0),
-              probit = ifelse(probit > 0.5, 1, 0),
-              logit = ifelse(logit > 0.5, 1, 0)) %>%
-    transmute(date,
-              probit = ifelse(probit == spread, 1, 0),
-              logit = ifelse(logit == spread, 1, 0)) %>%
-    summarise(probit = sum(probit) / n(),
-              logit = sum(logit) / n())
+    mutate(spread,
+           direction = ifelse(spread > 0, 1, 0),
+           probit = ifelse(probit > 0.5, 1, 0),
+           logit = ifelse(logit > 0.5, 1, 0))
   
   return(fore_out)
 }
