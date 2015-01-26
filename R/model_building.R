@@ -636,6 +636,8 @@ select_binary_eco <- function(input_frame, method = "logit") {
 #' @export
 select_svm_bin <- function(input_frame, kernel = "linear", min.lag = 7,
                            cost = 10^seq(-2, 1, 0.1), max.polynomial = 4,
+                           gamma = 10^seq(-6, 1, 0.5), 
+                           coef0 = -10^seq(-1, 1, 0.1),
                            cachesize = 1000, cores = 4L) {
   
   lags <- 1:min.lag + 1
@@ -783,8 +785,6 @@ select_svm_bin <- function(input_frame, kernel = "linear", min.lag = 7,
     }, mc.cores = getOption("mc.cores", cores)
     ) %>% rbind_all
   } else if (kernel == "sigmoid") {
-    gamma <- 10^seq(-6, 1, 0.5)
-    coef0 <- -10^seq(-1, 1, 0.1)
     
     svm_out <- mclapply(lags, function(t) {
       mclapply(coef0, function(s) {
@@ -913,6 +913,18 @@ oos_classification <- function(input_frame, test_start = "2012-11-01",
                                    degree = 3,
                                    gamma = 1,
                                    coef0 = 1,
+                                   cachesize = cachesize) %>%
+      predict(new_data = test_frame[, 1:4, drop = FALSE]) %>%
+      as.numeric
+    
+    svm_sigmoid_forecast <- svm(y ~ .,
+                                   data = train_frame[, 1:7],
+                                   kernel = "sigmoid",
+                                   scale = TRUE,
+                                   type = "C-classification",
+                                   cost = 7.2560,
+                                   gamma = 0.3162,
+                                   coef0 = -5.0119,
                                    cachesize = cachesize) %>%
       predict(new_data = test_frame[, 1:4, drop = FALSE]) %>%
       as.numeric
