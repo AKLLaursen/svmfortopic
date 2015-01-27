@@ -672,7 +672,7 @@ select_svm_bin <- function(input_frame, kernel = "linear", min.lag = 7,
                            cost = 10^seq(-2, 1, 0.1), max.polynomial = 4,
                            gamma = 10^seq(-6, 1, 0.5), 
                            coef0 = -10^seq(-1, 1, 0.1),
-                           cachesize = 500, cores = 4L) {
+                           cachesize = 500, cores = 8L) {
   
   lags <- 1:min.lag + 1
   
@@ -957,7 +957,7 @@ oos_classification <- function(input_frame, test_start = "2012-11-01",
                                scale = TRUE,
                                type = "C-classification",
                                cost = 1,
-                               gamma = 1,
+                               gamma = 0.1,
                                cachesize = cachesize) %>%
       predict(newdata = test_frame[, 1:7, drop = FALSE]) %>%
       as.character %>%
