@@ -159,19 +159,20 @@ garch_desc <- function(input_frame, p = 1, q = 1, path_figure = NULL,
            Std.Error = ` Std. Error`,
            t.value = ` t value`,
            p.value = `Pr(>|t|)`) %>%
-    mutate(Parameter = ifelse(Parameter == "omega", "$Intercept$",
-                              ifelse(grepl("alpha", Parameter), paste0(gsub("alpha", "$\\Alpha(", Parameter), ")_1$"),
-                                     ifelse(grepl("beta", Parameter), paste0(gsub("beta", "$\\Beta(", Parameter), ")_1$"), NA)))) %>%
-    mutate(Parameter = ifelse(p.value < 0.01, paste0(Parameter, "^*"),
-                              ifelse(0.01 <= p.value & p.value < 0.05, "^(**)",
-                                     ifelse(0.05 <= p.value & p.value < 0.1, "(***)", paste0(Parameter, "")))))
+    mutate(Parameter = ifelse(Parameter == "omega", "Intercept",
+                              ifelse(grepl("alpha", Parameter), paste0("$\\", gsub("alpha", "alpha_", Parameter), "$"),
+                                     ifelse(grepl("beta", Parameter), paste0("$\\", gsub("beta", "beta_", Parameter), "$"), NA)))) %>%
+    mutate(Parameter = ifelse(p.value < 0.01, paste0(Parameter, "*"),
+                              ifelse(0.01 <= p.value & p.value < 0.05, paste0(Parameter, "**"),
+                                     ifelse(0.05 <= p.value & p.value < 0.1, paste0(Parameter, "***"), paste0(Parameter, "")))))
   
   if (!is.null(path_table)) {
     xtable(garch_model,
            digits = 4) %>%
       print(type = "latex",
             file = paste0(path_table, "/garch_model_de.tex"),
-            floating = FALSE)
+            floating = FALSE,
+            sanitize.text.function = function(x){x})
   }
   
   if (path_figure %>% is.null %>% `!`) {
@@ -601,6 +602,7 @@ oos_forecast <- function(input_frame, forecast_type = "arima",
     left_join(input_frame %>% filter(date >= test_start), ., by = "date")
 }
 
+#' @export
 select_binary_eco <- function(input_frame, method = "logit") {
   calc_bic <- function(model, lag) {
     data.frame(lag = lag - 1,
@@ -629,15 +631,13 @@ select_binary_eco <- function(input_frame, method = "logit") {
   }) %>% rbind_all
 }
 
-bin_out <- function(input_frame, method = "logit") {
-  data.frame(y = input_frame$direction,
-                 x1 = lag(input_frame$spread, 1),
-                 x2 = lag(input_frame$spread, 2),
-                 x3 = lag(input_frame$spread, 3),
-                 x4 = lag(input_frame$spread, 4),
-                 x5 = lag(input_frame$spread, 5),
-                 x6 = lag(input_frame$spread, 6),
-                 x7 = lag(input_frame$spread, 7)) %>%
+#' Binary output
+#' 
+#' @export
+#' 
+bin_out <- function(input_frame, method = "logit", save_path = NULL) {
+  out <- data.frame(y = input_frame$direction,
+                 x1 = lag(input_frame$spread, 1)) %>%
     na.omit %>%
   glm(y ~ .,
       data = .,
@@ -649,10 +649,19 @@ bin_out <- function(input_frame, method = "logit") {
               t.statistic = statistic %>% round(4),
               p.value) %>%
     mutate(Parameter = ifelse(Parameter == "(Intercept)", "Intercept",
-                              ifelse(grepl("x", Parameter), paste0(gsub("x", "$\\Beta_", Parameter), "$"), NA))) %>%
+                              ifelse(grepl("x", Parameter), paste0("$\\", gsub("x", "beta_", Parameter), "$"), NA))) %>%
     mutate(Parameter = ifelse(p.value < 0.01, paste0(Parameter, "*"),
                               ifelse(0.01 <= p.value & p.value < 0.05, paste0(Parameter, "**"),
                                      ifelse(0.05 <= p.value & p.value < 0.1,  paste0(Parameter, "***"), paste0(Parameter, "")))))
+  
+  if (!is.null(save_path)) {
+    xtable(out,
+           digits = 4) %>%
+      print(type = "latex",
+            file = paste0(save_path, "/", method, ".tex"),
+            floating = FALSE,
+            sanitize.text.function=function(x){x})
+  }
   
 }
 
@@ -904,16 +913,16 @@ oos_classification <- function(input_frame, test_start = "2012-11-01",
       tail(1)
   
     probit_forecast <- glm(y ~ .,
-                           data = train_frame[, 1:6, drop = FALSE],
+                           data = train_frame[, 1:2, drop = FALSE],
                            family = binomial("probit")) %>%
-      predict(newdata = test_frame[, 1:5, drop = FALSE],
+      predict(newdata = test_frame[, 1, drop = FALSE],
               type = "response") %>%
       as.numeric
     
     logit_forecast <- glm(y ~ .,
-                           data = train_frame[, 1:6, drop = FALSE],
+                           data = train_frame[, 1:2, drop = FALSE],
                            family = binomial("logit")) %>%
-      predict(newdata = test_frame[, 1:5, drop = FALSE],
+      predict(newdata = test_frame[, 1, drop = FALSE],
               type = "response") %>%
       as.numeric
     
@@ -923,7 +932,7 @@ oos_classification <- function(input_frame, test_start = "2012-11-01",
                                scale = TRUE,
                                type = "C-classification",
                                cost = 0.4,
-                               cachesize = 100) %>%
+                               cachesize = cachesize) %>%
       predict(newdata = test_frame[, 1:4, drop = FALSE]) %>%
       as.character %>%
       as.numeric
