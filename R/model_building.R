@@ -603,7 +603,7 @@ oos_forecast <- function(input_frame, forecast_type = "arima",
 
 select_binary_eco <- function(input_frame, method = "logit") {
   calc_bic <- function(model, lag) {
-    data.frame(lag = lag,
+    data.frame(lag = lag - 1,
                aic = -2 * logLik(model) + 2 * length(model$coefficients),
                bic = -2 * logLik(model) + length(model$coefficients) *
                  log(length(model$fitted.values)),
@@ -627,6 +627,33 @@ select_binary_eco <- function(input_frame, method = "logit") {
         family = binomial(method)) %>%
       calc_bic(lag = i)
   }) %>% rbind_all
+}
+
+bin_out <- function(input_frame, method = "logit") {
+  data.frame(y = input_frame$direction,
+                 x1 = lag(input_frame$spread, 1),
+                 x2 = lag(input_frame$spread, 2),
+                 x3 = lag(input_frame$spread, 3),
+                 x4 = lag(input_frame$spread, 4),
+                 x5 = lag(input_frame$spread, 5),
+                 x6 = lag(input_frame$spread, 6),
+                 x7 = lag(input_frame$spread, 7)) %>%
+    na.omit %>%
+  glm(y ~ .,
+      data = .,
+      family = binomial(method))%>%
+    tidy %>%
+    transmute(Parameter = term,
+              Estimate = estimate %>% round(4),
+              Std.Error = std.error %>% round(4),
+              t.statistic = statistic %>% round(4),
+              p.value) %>%
+    mutate(Parameter = ifelse(Parameter == "(Intercept)", "Intercept",
+                              ifelse(grepl("x", Parameter), paste0(gsub("x", "$\\Beta_", Parameter), "$"), NA))) %>%
+    mutate(Parameter = ifelse(p.value < 0.01, paste0(Parameter, "*"),
+                              ifelse(0.01 <= p.value & p.value < 0.05, paste0(Parameter, "**"),
+                                     ifelse(0.05 <= p.value & p.value < 0.1,  paste0(Parameter, "***"), paste0(Parameter, "")))))
+  
 }
 
 #' Function to cross validate binary model
