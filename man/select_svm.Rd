@@ -6,7 +6,9 @@
 clear.}
 \usage{
 select_svm(input_frame, kernel = "linear", max.polynomial = 2,
-  cachesize = 8000, min_lag = 1)
+  cachesize = 500, min_lag = 7, eps_grid = 10^c(0.5, 0.75, 1, 1.25, 1.5),
+  gamma_grid = 10^c(0.5, 0.75, 1, 1.25, 1.5), sigma_grid = -10^seq(-1, 1,
+  0.5), cores = 8L)
 }
 \arguments{
 \item{input_frame}{A data frame containing a date and a price.}

@@ -273,3 +273,40 @@ draw_periodogram <- function(input_frame, input, log = TRUE, file_name = NULL,
             dpi = 1000)
    }
 }
+
+#' @export
+plot_forecast <- function(input_frame, path_figure) {
+  tmp <- input_frame %>%
+    transmute(date = date %>% as.Date(format("%d-%m-%Y")),
+              price = price %>% as.character %>% as.numeric) %>%
+    group_by(date) %>%
+    summarise(price = mean(price)) %>%
+    ungroup
+  
+  levels(input_frame$type) <- c("ARMA", "GARCH", "SVM Linear", "SVM Polynomial", "SVM Radial Basis", "SVM Neural Network")
+  
+  p <- input_frame %>%
+    mutate(date = date %>% as.Date(format("%d-%m-%Y")),
+           type = type,
+           price = price %>% as.character %>% as.numeric,
+           forecast = forecast %>% as.character %>% as.numeric) %>%
+    ggplot(data = ., aes(x = date, y = forecast)) +
+    geom_line(data = tmp, aes(x = date, y = price), color = "#E4001B") +
+    geom_line(color = "#003366",
+              linetype = "dashed") +
+    facet_wrap(~type, ncol = 2) +
+    xlab("Date") +
+    ylab("Forecast")
+  
+  # Possibly save graphs
+  if (!is.null(path_figure)) {
+    ggsave(filename = "6_regress_fore_out.eps",
+           plot = p,
+           path = path_figure,
+           scale = 1,
+           width = 21,
+           height = 21 * 1.5,
+           units = "cm",
+           dpi = 1000)
+  }
+}

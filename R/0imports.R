@@ -16,6 +16,8 @@ set_names <- magrittr::set_names
 subtract <- magrittr::subtract
 #' @importFrom magrittr raise_to_power
 raise_to_power <- magrittr::raise_to_power
+#' @importFrom magrittr multiply_by
+multiply_by <- magrittr::multiply_by
 
 # Imports from rvest
 
