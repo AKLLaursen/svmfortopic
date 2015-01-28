@@ -66,7 +66,8 @@ arima_desc <- function(input_frame, p = 6, q = 5, path_figure = NULL,
            digits = 4) %>%
       print(type = "latex",
             file = paste0(path_table, "/arma_model_de.tex"),
-            floating = FALSE)
+            floating = FALSE,
+            include.rownames = FALSE)
   }
   
   if (path_figure %>% is.null %>% `!`) {
@@ -172,7 +173,8 @@ garch_desc <- function(input_frame, p = 1, q = 1, path_figure = NULL,
       print(type = "latex",
             file = paste0(path_table, "/garch_model_de.tex"),
             floating = FALSE,
-            sanitize.text.function = function(x){x})
+            sanitize.text.function = function(x){x},
+            include.rownames = FALSE)
   }
   
   if (path_figure %>% is.null %>% `!`) {
@@ -660,7 +662,8 @@ bin_out <- function(input_frame, method = "logit", save_path = NULL) {
       print(type = "latex",
             file = paste0(save_path, "/", method, ".tex"),
             floating = FALSE,
-            sanitize.text.function=function(x){x})
+            sanitize.text.function=function(x){x},
+            include.rownames = FALSE)
   }
   
 }
