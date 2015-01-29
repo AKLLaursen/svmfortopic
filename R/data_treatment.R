@@ -13,7 +13,7 @@
 #' @return a dataframe containing the dates, hours, spot and volumes
 #' @export
 scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
-                        contract = "H", filter_missing = TRUE)
+                        contract = "H", filter_missing = TRUE, cores = 8L)
 {
   cat("Initialising scraping routine, getting dates ...\n")
   time_stamp <- Sys.time()
@@ -28,13 +28,12 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
     stop("Market not recognised")
   }
   
-  data_out <- list()
-  for (ii in 1:length(date_scr)) {
+  data_out <- mclapply(1:length(date_scr), function(ii) {
     if (market == "Spot") {
       
       epex_sp <-
-        html(paste0("http://www.epexspot.com/en/market-data/auction/auction-ta",
-                    "ble/",
+        html(paste0("http://www.epexspot.com/en/market-data/dayaheadauction/au",
+                    "ction-table/",
                     date_scr[ii],
                     "/",
                     country))
@@ -46,7 +45,7 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
         as.numeric
       
       # Summarise to handle October daylights savings, i.e. two hour 3.
-      data_out[[ii]] <- data.frame(
+      data_out <- data.frame(
         date = date_scr[ii] %>% as.Date %>% add(6),
         hour = if (length(data_scr) > 48) c(1:3, 3:24) else 1:24,
         spot = data_scr[c(TRUE, FALSE)],
@@ -62,8 +61,8 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
     } else if (market == "Intraday") {
       
       epex_sp <-
-        html(paste0("http://www.epexspot.com/en/market-data/intraday/intraday-",
-                    "table/",
+        html(paste0("http://www.epexspot.com/en/market-data/intradaycontinuous",
+                    "/intraday-table/",
                     date_scr[ii],
                     "/",
                     country))
@@ -80,7 +79,7 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
         data_scr <- data_scr[seq(1, length(data_scr), 5)]
         
         # Summarise to handle October daylights savings, i.e. two hour 3.
-        data_out[[ii]] <- data.frame(
+        data_out <- data.frame(
           date = date_scr[ii] %>% as.Date,
           hour = if (length(data_scr) > 24) c(1:3, 3:24) else 1:24,
           vwap = data_scr,
@@ -96,7 +95,7 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
         data_scr <- data_scr[-seq(1, length(data_scr), 5)]
         
         # Summarise to handle October daylights savings, i.e. two hour 3.
-        data_out[[ii]] <- data.frame(
+        data_out <- data.frame(
           date = date_scr[ii] %>% as.Date,
           quarter = if (length(data_scr) > 96) c(1:12, 9:12, 13:96) else 1:96,
           vwap = data_scr,
@@ -114,7 +113,9 @@ scrape_epex <- function(from_date, to_date, country = "DE", market = "Spot",
     } else {
       stop("Market not recognised\n")
     }
-  }
+    return(data_out)
+  },
+  mc.cores = getOption("mc.cores", cores))
   if (market == "Spot") {
     data_out <- data_out %>%
       rbind_all %>%
